@@ -7,5 +7,4 @@
     "bad": "#5579a7",
     "awful": "#6a777c"
   },
-  "monthsToShow": 3
-}
+  "barWidth": 4.5

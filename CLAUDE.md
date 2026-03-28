@@ -120,7 +120,7 @@ Settings are persisted by Obsidian to
 ```jsonc
 {
   "csvPath": "attachments/daylio_export.csv",  // relative to vault root
-  "monthsToShow": 3,                           // 1 | 2 | 3 | 6 | 12
+  "barWidth": 8,                               // pixels per bar column (2–24); controls zoom
   "moodColors": {
     "rad":   "#f78c1e",
     "good":  "#41a766",

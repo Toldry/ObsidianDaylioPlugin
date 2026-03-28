@@ -14,37 +14,44 @@
 	padding: 20px 0;
 }
 
-/* ── Toolbar (time-range selector) ─────────────────────────── */
+/* ── Toolbar (zoom slider) ──────────────────────────────────── */
 
 .daylio-graph-toolbar {
 	display: flex;
-	gap: 6px;
-	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
 }
 
-.daylio-graph-range-btn {
-	padding: 4px 12px;
-	border-radius: 14px;
-	border: 1px solid var(--background-modifier-border);
-	background: var(--background-secondary);
-	color: var(--text-normal);
-	cursor: pointer;
+.daylio-zoom-label {
 	font-size: 12px;
-	transition: background 0.15s, color 0.15s;
+	color: var(--text-muted);
+	white-space: nowrap;
+	margin-right: 2px;
 }
 
-.daylio-graph-range-btn:hover {
+.daylio-zoom-btn {
+	appearance: none;
+	background: none;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	color: var(--text-muted);
+	cursor: pointer;
+	font-size: 14px;
+	line-height: 1;
+	padding: 0 5px 1px;
+	user-select: none;
+}
+
+.daylio-zoom-btn:hover {
 	background: var(--background-modifier-hover);
+	color: var(--text-normal);
 }
 
-.daylio-graph-range-active {
-	background: var(--interactive-accent);
-	color: var(--text-on-accent);
-	border-color: var(--interactive-accent);
-}
-
-.daylio-graph-range-active:hover {
-	background: var(--interactive-accent-hover);
+.daylio-zoom-slider {
+	flex: 1;
+	max-width: 200px;
+	accent-color: var(--interactive-accent);
+	cursor: pointer;
 }
 
 /* ── Legend ─────────────────────────────────────────────────── */
@@ -105,11 +112,57 @@
 	font-family: var(--font-interface);
 }
 
+.daylio-lane-divider {
+	stroke: var(--background-modifier-border);
+	stroke-width: 0.5;
+	opacity: 0.5;
+}
+
 .daylio-date-tick {
-	font-size: 9px;
+	font-size: 8px;
 	fill: var(--text-faint);
 	text-anchor: middle;
 	font-family: var(--font-interface);
+}
+
+/* ── Hover date label ──────────────────────────────────────── */
+
+.daylio-hover-date-label {
+	font-size: 9px;
+	font-family: var(--font-monospace);
+	fill: var(--text-normal);
+	text-anchor: middle;
+	pointer-events: none;   /* don't interfere with mouse events */
+}
+
+/* ── Active-event clickable overlays ───────────────────────── */
+
+/* The <g> wrapping one event's range. cursor:pointer applies   */
+/* to everything inside so the whole area looks clickable.      */
+.daylio-event-group {
+	cursor: pointer;
+}
+
+/* Wide background covering the full event date range.          */
+/* Shown faintly when *any* child of the group is hovered.      */
+.daylio-range-bg {
+	fill: transparent;
+}
+
+.daylio-event-group:hover .daylio-range-bg {
+	fill: var(--interactive-accent);
+	fill-opacity: 0.08;
+}
+
+/* Narrow overlay covering exactly one day column.              */
+/* Shown more strongly when that specific column is hovered.    */
+.daylio-day-overlay {
+	fill: transparent;
+}
+
+.daylio-day-overlay:hover {
+	fill: var(--interactive-accent);
+	fill-opacity: 0.20;
 }
 
 /* ── Event labels ──────────────────────────────────────────── */

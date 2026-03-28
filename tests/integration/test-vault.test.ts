@@ -279,9 +279,11 @@ describe("Vault events integration (test vault notes)", () => {
 
 	it("excludes notes whose filenames do not begin with a date", () => {
 		// "Meeting Notes - March Sprint" and "Ideas and Scratchpad"
+		// Use path.basename so the check is path-separator-agnostic
+		// (Windows uses backslashes; forward-slash regex would fail there).
 		const nonDatePaths = events
 			.map((e) => e.filePath)
-			.filter((fp) => !/\/\d{4}-\d{2}-\d{2}/.test(fp));
+			.filter((fp) => !/^\d{4}-\d{2}-\d{2}/.test(path.basename(fp)));
 		expect(nonDatePaths).toHaveLength(0);
 	});
 

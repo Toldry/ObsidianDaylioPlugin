@@ -54,3 +54,6 @@ export class TFile {
 export class Notice {
 	constructor(_message: string) {}
 }
+
+// Module-level functions
+export function addIcon(_iconId: string, _svgContent: string): void {}

@@ -60,7 +60,7 @@ attachments/daylio_export.csv
 
 ### 3. Open the graph
 
-Click the bar-chart icon (📊) in the left ribbon, or run the command
+Click the smiley-face icon in the left ribbon, or run the command
 **Daylio Mood Graph: Open Daylio Mood Graph** from the command palette
 (Ctrl+P / Cmd+P).
 
@@ -95,12 +95,13 @@ needs to open your notes — so scanning is fast regardless of vault size.
 
 | Setting | Description | Default |
 |---|---|---|
-| CSV file path | Path to the Daylio export, relative to vault root | *(empty)* |
+| CSV file path | Dropdown listing all CSV files in your vault | *(empty)* |
 | Mood colours | A colour picker for each of the five mood levels | Daylio palette |
 | Reset colours | Restores the default Daylio colour palette | — |
 
-The time range (1 Mo / 2 Mo / 3 Mo / 6 Mo / 1 Year) is toggled directly
-on the graph toolbar and persists between sessions.
+The zoom level is controlled by a slider on the graph toolbar and persists
+between sessions. Drag it left for an overview of years, right to zoom into
+individual days.
 
 ## Mood levels and default colours
 
