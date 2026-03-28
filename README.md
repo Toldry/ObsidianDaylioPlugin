@@ -122,8 +122,55 @@ surrounding UI elements.
 
 ## Development
 
-See [CLAUDE.md](./CLAUDE.md) for build instructions, project structure, and
-architecture notes.
+### Building
+
+```bash
+npm install          # first time only
+npm run dev          # watch mode with source maps
+npm run build        # production bundle (type-checks first)
+```
+
+After building, copy `main.js`, `manifest.json`, and `styles.css` into your
+vault's plugin folder and reload Obsidian (Ctrl+R / Cmd+R).
+
+### Running the tests
+
+The test suite uses [Vitest](https://vitest.dev) and requires no Obsidian
+runtime — the Obsidian API is replaced by a minimal stub for unit tests, and
+the integration tests read real files directly from `daylio_plugin_test_vault/`.
+
+```bash
+npm test                # run all tests once (unit + integration)
+npm run test:watch      # re-run on every file save
+npm run test:coverage   # run with coverage report
+```
+
+#### Test structure
+
+```
+tests/
+├── unit/
+│   ├── csv-parser.test.ts      isMoodLevel, parseCsvLine,
+│   │                           parseDaylioCsv, groupByDay
+│   └── vault-scanner.test.ts   scanVaultEvents (with mock App)
+├── integration/
+│   └── test-vault.test.ts      real CSV and real vault notes
+└── helpers/
+    └── vault-reader.ts         filesystem helper used by integration tests
+```
+
+Unit tests cover the CSV parser and vault scanner logic using a mock Obsidian
+`App` object. Integration tests read `daylio_plugin_test_vault/attachments/daylio_export.csv`
+and all the `.md` notes in `daylio_plugin_test_vault/` to verify end-to-end
+behaviour against real data, including specific anchor points (known entry
+counts, dates, and mood distributions).
+
+The SVG rendering inside `DaylioGraphView` is not covered by automated tests
+as it depends on a live browser DOM; test it manually by opening the test
+vault in Obsidian.
+
+See [CLAUDE.md](./CLAUDE.md) for full architecture and testability
+conventions.
 
 ## Licence
 
