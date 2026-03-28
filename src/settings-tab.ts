@@ -60,6 +60,23 @@ export class DaylioSettingTab extends PluginSettingTab {
 					});
 			});
 
+		// ── Event scan directory ─────────────────────────────────
+		new Setting(containerEl)
+			.setName("Event scan directory")
+			.setDesc(
+				"Vault-relative subdirectory to scan for event notes (e.g. entries). " +
+				"Leave blank to scan the whole vault."
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder("entries")
+					.setValue(this.plugin.settings.eventScanDir)
+					.onChange(async (value) => {
+						this.plugin.settings.eventScanDir = value.trim();
+						await this.plugin.saveSettings();
+					})
+			);
+
 		containerEl.createEl("h3", { text: "Mood Colours" });
 
 		for (const mood of MOOD_LEVELS) {

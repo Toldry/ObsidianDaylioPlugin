@@ -1,16 +1,11 @@
 import { addIcon } from "obsidian";
+import DAYLIO_FACE_SVG from "./daylio-face.svg";
 
 // ─── Custom ribbon icon ──────────────────────────────────────────────
 const DAYLIO_ICON_ID = "daylio-face";
-addIcon(
-	DAYLIO_ICON_ID,
-	`<circle cx="50" cy="50" r="48" fill="#4CAF50"/>
-	 <circle cx="36" cy="40" r="7" fill="#1a1a1a"/>
-	 <circle cx="64" cy="40" r="7" fill="#1a1a1a"/>
-	 <path d="M30 60 Q50 80 70 60"
-	       stroke="#1a1a1a" stroke-width="7"
-	       fill="none" stroke-linecap="round"/>`
-);
+// addIcon expects the inner HTML of an <svg> element, not the full document.
+const svgInner = DAYLIO_FACE_SVG.match(/<svg[^>]*>([\s\S]*)<\/svg>/i)?.[1] ?? DAYLIO_FACE_SVG;
+addIcon(DAYLIO_ICON_ID, svgInner);
 
 export { DAYLIO_ICON_ID };
 
@@ -57,12 +52,15 @@ export interface DaylioGraphSettings {
 	moodColors: Record<MoodLevel, string>;
 	/** Pixel width of each bar column — controls zoom level. */
 	barWidth: number;
+	/** Vault-relative subdirectory to scan for event notes. Empty string = scan whole vault. */
+	eventScanDir: string;
 }
 
 export const DEFAULT_SETTINGS: DaylioGraphSettings = {
 	csvPath: "",
 	moodColors: { ...DEFAULT_MOOD_COLORS },
 	barWidth: 8,
+	eventScanDir: "",
 };
 
 /**

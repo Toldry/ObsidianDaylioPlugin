@@ -223,3 +223,83 @@ describe("scanVaultEvents", () => {
 		expect(event?.date).toBe("2025-12-31");
 	});
 });
+
+describe("scanVaultEvents — scanDir filtering", () => {
+	const specs = [
+		{
+			basename: "2024-01-01 Root note",
+			path: "2024-01-01 Root note.md",
+			frontmatter: { daylio_event: "Root event" },
+		},
+		{
+			basename: "2024-02-01 Entries note",
+			path: "entries/2024-02-01 Entries note.md",
+			frontmatter: { daylio_event: "Entries event" },
+		},
+		{
+			basename: "2024-03-01 Nested note",
+			path: "entries/sub/2024-03-01 Nested note.md",
+			frontmatter: { daylio_event: "Nested event" },
+		},
+		{
+			basename: "2024-04-01 Other dir",
+			path: "journal/2024-04-01 Other dir.md",
+			frontmatter: { daylio_event: "Journal event" },
+		},
+	];
+
+	it("returns all files when scanDir is undefined", () => {
+		const app = buildMockApp(specs);
+		expect(scanVaultEvents(app, undefined)).toHaveLength(4);
+	});
+
+	it("returns all files when scanDir is an empty string", () => {
+		const app = buildMockApp(specs);
+		expect(scanVaultEvents(app, "")).toHaveLength(4);
+	});
+
+	it("returns only files inside the specified directory", () => {
+		const app = buildMockApp(specs);
+		const events = scanVaultEvents(app, "entries");
+		expect(events).toHaveLength(2);
+		expect(events.map((e) => e.label)).toEqual(
+			expect.arrayContaining(["Entries event", "Nested event"])
+		);
+	});
+
+	it("excludes files in the root when a scanDir is set", () => {
+		const app = buildMockApp(specs);
+		const events = scanVaultEvents(app, "entries");
+		expect(events.some((e) => e.label === "Root event")).toBe(false);
+	});
+
+	it("excludes files in other directories when a scanDir is set", () => {
+		const app = buildMockApp(specs);
+		const events = scanVaultEvents(app, "entries");
+		expect(events.some((e) => e.label === "Journal event")).toBe(false);
+	});
+
+	it("includes files nested deeper than one level under scanDir", () => {
+		const app = buildMockApp(specs);
+		const events = scanVaultEvents(app, "entries");
+		expect(events.some((e) => e.label === "Nested event")).toBe(true);
+	});
+
+	it("does not accidentally match a directory that is a prefix of scanDir", () => {
+		// "entries2" should not match when scanDir is "entries"
+		const app = buildMockApp([
+			{
+				basename: "2024-05-01 Tricky",
+				path: "entries2/2024-05-01 Tricky.md",
+				frontmatter: { daylio_event: "Tricky event" },
+			},
+		]);
+		expect(scanVaultEvents(app, "entries")).toHaveLength(0);
+	});
+
+	it("handles a trailing slash in scanDir gracefully", () => {
+		const app = buildMockApp(specs);
+		const events = scanVaultEvents(app, "entries/");
+		expect(events).toHaveLength(2);
+	});
+});

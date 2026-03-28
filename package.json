@@ -9,7 +9,9 @@
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"test": "vitest run",
 		"test:watch": "vitest",
-		"test:coverage": "vitest run --coverage"
+		"test:coverage": "vitest run --coverage",
+		"install:vault": "cp main.js manifest.json styles.css daylio_plugin_test_vault/.obsidian/plugins/daylio-mood-graph/",
+		"build:vault": "npm run build && npm run install:vault"
 	},
 	"keywords": [],
 	"license": "MIT",

@@ -181,7 +181,7 @@ export class DaylioGraphView extends ItemView {
 		plusBtn.addEventListener("click", () => stepZoom(0.5));
 
 		// ── Collect vault events + cache parsed data ────────────
-		this.cachedVaultEvents = scanVaultEvents(this.app);
+		this.cachedVaultEvents = scanVaultEvents(this.app, this.plugin.settings.eventScanDir || undefined);
 		this.cachedDays = groupByDay(allEntries);
 
 		// ── Mood legend ─────────────────────────────────────────
