@@ -6,6 +6,7 @@ import {
 	type DayData,
 	type VaultEvent,
 	type HasDaylioSettings,
+	DAYLIO_ICON_ID,
 } from "./types";
 import { parseDaylioCsv, groupByDay } from "./csv-parser";
 import { scanVaultEvents } from "./vault-scanner";
@@ -34,7 +35,7 @@ export class DaylioGraphView extends ItemView {
 	}
 
 	getIcon(): string {
-		return "bar-chart-2";
+		return DAYLIO_ICON_ID
 	}
 
 	async onOpen(): Promise<void> {
