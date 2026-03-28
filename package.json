@@ -1,0 +1,27 @@
+{
+	"name": "daylio-mood-graph",
+	"version": "1.0.0",
+	"description": "Visualizes Daylio mood data as a color-coded graph with clickable vault event labels.",
+	"main": "main.js",
+	"type": "module",
+	"scripts": {
+		"dev": "node esbuild.config.mjs",
+		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:coverage": "vitest run --coverage"
+	},
+	"keywords": [],
+	"license": "MIT",
+	"devDependencies": {
+		"@types/node": "^16.11.6",
+		"@vitest/coverage-v8": "^2.0.0",
+		"esbuild": "0.25.5",
+		"tslib": "2.4.0",
+		"typescript": "^5.8.3",
+		"vitest": "^2.0.0"
+	},
+	"dependencies": {
+		"obsidian": "latest"
+	}
+}
