@@ -22,9 +22,10 @@ awful
       Jun       Jul       Aug
 ```
 
-Vault events appear as small labelled cards above the graph, connected to
-their date by a dashed line and a diamond marker. Clicking a card opens the
-corresponding note.
+Vault events appear as small labelled cards below the graph, connected to
+their date by a dashed connector line. Clicking a card opens the
+corresponding note. Hovering over a day column shows the date; hovering
+over an event's range highlights the full period that event spans.
 
 ## Installation
 
@@ -166,7 +167,7 @@ and all the `.md` notes in `daylio_plugin_test_vault/` to verify end-to-end
 behaviour against real data, including specific anchor points (known entry
 counts, dates, and mood distributions).
 
-The SVG rendering inside `DaylioGraphView` is not covered by automated tests
+The SVG rendering inside `buildGraphSvg` is not covered by automated tests
 as it depends on a live browser DOM; test it manually by opening the test
 vault in Obsidian.
 

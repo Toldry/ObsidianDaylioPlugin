@@ -104,6 +104,7 @@
 	stroke: var(--background-modifier-border);
 	stroke-width: 1;
 	stroke-dasharray: 4 2;
+	fill: none;
 }
 
 .daylio-month-label {
@@ -116,6 +117,7 @@
 	stroke: var(--background-modifier-border);
 	stroke-width: 0.5;
 	opacity: 0.5;
+	fill: none;
 }
 
 .daylio-date-tick {

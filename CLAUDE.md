@@ -41,12 +41,18 @@ file, not the TypeScript sources directly.
 ```
 daylio-obsidian-plugin/
 ├── src/
-│   └── main.ts                  ← All plugin logic (single-file architecture)
+│   ├── main.ts              ← Plugin entry point + re-exports for tests
+│   ├── types.ts             ← Types, interfaces, constants, defaults, icon
+│   ├── csv-parser.ts        ← parseDaylioCsv, parseCsvLine, isMoodLevel, groupByDay
+│   ├── vault-scanner.ts     ← scanVaultEvents, DATE_PREFIX_REGEX
+│   ├── graph-builder.ts     ← buildGraphSvg (pure synchronous SVG builder)
+│   ├── graph-view.ts        ← DaylioGraphView (Obsidian ItemView subclass)
+│   └── settings-tab.ts      ← DaylioSettingTab (Obsidian PluginSettingTab)
 ├── tests/
 │   ├── __mocks__/
-│   │   └── obsidian.ts          ← Minimal Obsidian API stub for unit tests
+│   │   └── obsidian.ts      ← Minimal Obsidian API stub for unit tests
 │   ├── helpers/
-│   │   └── vault-reader.ts      ← Filesystem-based vault scanner for integration tests
+│   │   └── vault-reader.ts  ← Filesystem-based vault scanner for integration tests
 │   ├── unit/
 │   │   ├── csv-parser.test.ts   ← Unit tests: isMoodLevel, parseCsvLine, parseDaylioCsv, groupByDay
 │   │   └── vault-scanner.test.ts ← Unit tests: scanVaultEvents (with mock App)
@@ -70,16 +76,30 @@ daylio-obsidian-plugin/
 
 ## Architecture
 
-Everything lives in `src/main.ts`. The file is organised into clearly
-delimited sections:
+The source is split into focused modules under `src/`:
 
-- **Types** — `MoodLevel`, `MoodEntry`, `DayData`, `VaultEvent`
-- **CSV parsing** — `parseDaylioCsv`, `parseCsvLine`, `groupByDay`
-- **Vault event scanner** — `scanVaultEvents` (reads `app.metadataCache`)
-- **Graph view** — `DaylioGraphView extends ItemView` (SVG rendered into an
-  Obsidian leaf pane)
-- **Settings tab** — `DaylioSettingTab extends PluginSettingTab`
-- **Plugin entry point** — `DaylioGraphPlugin extends Plugin`
+- **`types.ts`** — `MoodLevel`, `MoodEntry`, `DayData`, `VaultEvent`, settings
+  interfaces, default colours, `barGapFor()`, `MOOD_TO_LANE`, the custom
+  ribbon icon registration, and the `HasDaylioSettings` interface used to
+  break circular dependencies between the graph view and the plugin class.
+- **`csv-parser.ts`** — `parseDaylioCsv`, `parseCsvLine`, `isMoodLevel`,
+  `groupByDay`. Pure functions, no Obsidian imports.
+- **`vault-scanner.ts`** — `scanVaultEvents`, `DATE_PREFIX_REGEX`. Depends
+  only on Obsidian `App` and `TFile`.
+- **`graph-builder.ts`** — `buildGraphSvg()`. A pure synchronous function
+  that takes `DayData[]`, `VaultEvent[]`, and a context object (mood colours
+  + file-opener callback), returning an `SVGSVGElement`. This is the
+  performance-critical path — mood bars are rendered as one `<path>` per mood
+  level (5 path elements) instead of individual `<rect>` elements per bar.
+  Lane dividers and month separators are also merged into single paths.
+- **`graph-view.ts`** — `DaylioGraphView extends ItemView`. Orchestrates CSV
+  loading, caching, toolbar/legend UI, and zoom (slider, ±buttons,
+  Ctrl+wheel). Delegates SVG building to `buildGraphSvg()`.
+- **`settings-tab.ts`** — `DaylioSettingTab extends PluginSettingTab`.
+- **`main.ts`** — `DaylioGraphPlugin extends Plugin`. Slim entry point that
+  wires up the view, ribbon icon, command, and settings tab. Also re-exports
+  all pure functions and types so existing test imports (`from "../../src/main"`)
+  keep working.
 
 The graph is pure SVG built via `document.createElementNS`. Event labels
 use `<foreignObject>` so they can contain a clickable, text-wrapping `<div>`.
@@ -120,7 +140,7 @@ Settings are persisted by Obsidian to
 ```jsonc
 {
   "csvPath": "attachments/daylio_export.csv",  // relative to vault root
-  "barWidth": 8,                               // pixels per bar column (2–24); controls zoom
+  "barWidth": 8,                               // pixels per bar column (0.5–16); controls zoom
   "moodColors": {
     "rad":   "#f78c1e",
     "good":  "#41a766",
@@ -157,10 +177,11 @@ Tests are written with [Vitest](https://vitest.dev) and live in `tests/`.
 
 The plugin can't run a full Obsidian runtime in CI, so the test strategy is:
 
-1. **Unit tests** import the exported pure functions from `src/main.ts` directly.
-   The `obsidian` package import is intercepted by the alias in `vitest.config.ts`
-   and redirected to `tests/__mocks__/obsidian.ts` — a minimal stub that satisfies
-   the TypeScript compiler without needing a real Obsidian runtime.
+1. **Unit tests** import exported pure functions via `src/main.ts` (which
+   re-exports from the individual modules). The `obsidian` package import is
+   intercepted by the alias in `vitest.config.ts` and redirected to
+   `tests/__mocks__/obsidian.ts` — a minimal stub that satisfies the
+   TypeScript compiler without needing a real Obsidian runtime.
 
 2. **Integration tests** read the actual files in `daylio_plugin_test_vault/`
    (the real CSV and the real markdown notes) using Node.js `fs`. A helper
@@ -172,7 +193,7 @@ The plugin can't run a full Obsidian runtime in CI, so the test strategy is:
 
 | Covered | Not covered |
 |---|---|
-| CSV parsing (all five moods, edge cases, CRLF) | SVG/DOM rendering (`DaylioGraphView.renderGraph`) |
+| CSV parsing (all five moods, edge cases, CRLF) | SVG/DOM rendering (`buildGraphSvg`) |
 | `groupByDay` ordering and grouping | Obsidian-specific UI (ribbon, command palette) |
 | `scanVaultEvents` with mocked App | Settings tab rendering |
 | Frontmatter extraction (quoted, unquoted, empty) | Plugin load/unload lifecycle |
@@ -185,13 +206,15 @@ that layer.
 
 ### Testability convention
 
-All pure functions in `src/main.ts` are exported with the `export` keyword so
-test files can import them. The Obsidian classes (`Plugin`, `ItemView`, etc.)
-are NOT exported — they're only needed by the Obsidian runtime, not by tests.
+All pure functions are exported from their respective modules and re-exported
+from `src/main.ts` so test files can import them via a single path. The
+Obsidian classes (`Plugin`, `ItemView`, etc.) are NOT exported — they're only
+needed by the Obsidian runtime, not by tests.
 
-If you add a new pure function to `src/main.ts`, export it and add unit tests.
-If you add logic that depends on the Obsidian API, test it through the
-mock-App pattern in `tests/unit/vault-scanner.test.ts`.
+If you add a new pure function, export it from its module and add it to the
+re-exports in `src/main.ts`. If you add logic that depends on the Obsidian
+API, test it through the mock-App pattern in
+`tests/unit/vault-scanner.test.ts`.
 
 ## CSS conventions
 
@@ -199,6 +222,18 @@ All CSS lives in `styles.css`. Classes are prefixed `daylio-` to avoid
 collisions. Colours use Obsidian CSS variables (`--text-muted`,
 `--interactive-accent`, etc.) so the plugin respects the user's chosen theme
 automatically.
+
+## Graph rendering performance
+
+The graph builder (`src/graph-builder.ts`) is optimised for fast zoom redraws:
+
+- Mood bars are rendered as one `<path>` per mood level (5 total) instead of
+  individual `<rect>` elements per bar (~2 900 rects → 5 paths).
+- Lane dividers are a single `<path>` with multiple `M…H…` subpaths.
+- Month separator lines are a single `<path>`.
+- A helper function `svgEl()` reduces boilerplate for element creation.
+- The graph view caches parsed CSV data (`cachedDays`) and vault events so
+  zoom redraws skip the async file read and directly call `buildGraphSvg()`.
 
 ## Releasing
 
