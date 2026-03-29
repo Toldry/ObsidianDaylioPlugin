@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daylio Mood Graph — Dev Preview</title>
+<style>
+  /* ── Page chrome ──────────────────────────────────────────────────── */
+  :root {
+    --background-primary: #1e1e2e;
+    --background-secondary: #181825;
+    --background-modifier-border: #313244;
+    --background-modifier-hover: #45475a;
+    --text-normal: #cdd6f4;
+    --text-muted: #a6adc8;
+    --text-faint: #6c7086;
+    --text-accent: #89b4fa;
+    --interactive-accent: #cba6f7;
+    --font-interface: system-ui, -apple-system, sans-serif;
+    --font-monospace: "JetBrains Mono", "Fira Mono", monospace;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --background-primary: #ffffff;
+      --background-secondary: #f5f5f5;
+      --background-modifier-border: #ddd;
+      --background-modifier-hover: #e8e8e8;
+      --text-normal: #333;
+      --text-muted: #777;
+      --text-faint: #aaa;
+      --text-accent: #5566cc;
+      --interactive-accent: #8855cc;
+      --font-interface: system-ui, -apple-system, sans-serif;
+      --font-monospace: monospace;
+    }
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-interface);
+    background: #11111b;
+    color: var(--text-normal);
+    min-height: 100vh;
+    padding: 24px;
+  }
+  .page-header {
+    margin-bottom: 20px;
+  }
+  .page-header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-normal);
+    margin-bottom: 4px;
+  }
+  .page-header p {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .csv-status {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+  .csv-status.error { color: #f38ba8; }
+  .csv-status.ok    { color: #a6e3a1; }
+
+  /* ── Plugin container (mirrors Obsidian leaf pane) ──────────────── */
+  .plugin-pane {
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  /* ── Daylio plugin styles (copied from styles.css, vars resolved) ─ */
+  .daylio-graph-root {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .daylio-graph-notice {
+    color: var(--text-muted);
+    font-style: italic;
+    padding: 20px 0;
+  }
+  .daylio-graph-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .daylio-zoom-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    margin-right: 2px;
+  }
+  .daylio-zoom-btn {
+    appearance: none;
+    background: none;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 5px 1px;
+    user-select: none;
+  }
+  .daylio-zoom-btn:hover {
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
+  }
+  .daylio-zoom-slider {
+    flex: 1;
+    max-width: 200px;
+    accent-color: var(--interactive-accent);
+    cursor: pointer;
+  }
+  .daylio-graph-legend {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .daylio-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .daylio-legend-swatch {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+  }
+  .daylio-legend-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: capitalize;
+  }
+  .daylio-graph-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    min-height: 280px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    background: var(--background-primary);
+  }
+  .daylio-graph-svg { display: block; }
+  .daylio-month-line {
+    stroke: var(--background-modifier-border);
+    stroke-width: 1;
+    stroke-dasharray: 4 2;
+    fill: none;
+  }
+  .daylio-month-label {
+    font-size: 11px;
+    fill: var(--text-muted);
+    font-family: var(--font-interface);
+  }
+  .daylio-lane-divider {
+    stroke: var(--background-modifier-border);
+    stroke-width: 0.5;
+    opacity: 0.5;
+    fill: none;
+  }
+  .daylio-date-tick {
+    font-size: 8px;
+    fill: var(--text-faint);
+    text-anchor: middle;
+    font-family: var(--font-interface);
+  }
+  .daylio-hover-date-label {
+    font-size: 9px;
+    font-family: var(--font-monospace);
+    fill: var(--text-normal);
+    text-anchor: middle;
+    pointer-events: none;
+  }
+  .daylio-event-group { cursor: pointer; }
+  .daylio-range-bg { fill: transparent; }
+  .daylio-event-group:hover .daylio-range-bg {
+    fill: var(--interactive-accent);
+    fill-opacity: 0.08;
+  }
+  .daylio-day-overlay { fill: transparent; }
+  .daylio-day-overlay:hover {
+    fill: var(--interactive-accent);
+    fill-opacity: 0.20;
+  }
+  .daylio-event-connector {
+    stroke: var(--text-accent);
+    stroke-width: 1.5;
+    stroke-dasharray: 3 2;
+  }
+  .daylio-event-label {
+    font-size: 10px;
+    line-height: 1.2;
+    color: var(--text-accent);
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    background: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    word-wrap: break-word;
+    max-height: 100%;
+    transition: background 0.15s;
+  }
+  .daylio-event-label:hover {
+    background: var(--background-modifier-hover);
+    text-decoration: underline;
+  }
+  .daylio-mood-bar { cursor: crosshair; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Daylio Mood Graph — Dev Preview</h1>
+  <p>Standalone browser render of the graph using the real test-vault CSV. No Obsidian required.</p>
+  <div id="csv-status" class="csv-status">Loading CSV…</div>
+</div>
+
+<div class="plugin-pane">
+  <div class="daylio-graph-root" id="root">
+    <div class="daylio-graph-notice">Loading…</div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+// Inline port of src/types.ts constants (Obsidian-free)
+// ═══════════════════════════════════════════════════════════════════════
+
+const MOOD_LEVELS = ["awful", "bad", "meh", "good", "rad"];
+
+const DEFAULT_MOOD_COLORS = {
+  rad:   "#f78c1e",
+  good:  "#41a766",
+  meh:   "#9056a3",
+  bad:   "#5579a7",
+  awful: "#6a777c",
+};
+
+function barGapFor(barWidth) {
+  return barWidth >= 2 ? 2 : barWidth >= 1 ? 1 : 0;
+}
+
+const MOOD_TO_LANE = { rad: 0, good: 1, meh: 2, bad: 3, awful: 4 };
+
+// ═══════════════════════════════════════════════════════════════════════
+// Inline port of src/csv-parser.ts
+// ═══════════════════════════════════════════════════════════════════════
+
+function parseDaylioCsv(raw) {
+  const lines = raw.split(/\r?\n/).filter(line => line.trim() !== "");
+  if (lines.length < 2) return [];
+  const entries = [];
+  for (let i = 1; i < lines.length; i++) {
+    const fields = parseCsvLine(lines[i] ?? "");
+    const fullDate = fields[0]?.trim();
+    const time     = fields[3]?.trim() ?? "";
+    const moodRaw  = fields[4]?.trim().toLowerCase() ?? "";
+    if (!fullDate || !isMoodLevel(moodRaw)) continue;
+    entries.push({ date: fullDate, time, mood: moodRaw });
+  }
+  return entries;
+}
+
+function parseCsvLine(line) {
+  const result = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (inQuotes) {
+      if (char === '"') {
+        if (i + 1 < line.length && line[i + 1] === '"') { current += '"'; i++; }
+        else { inQuotes = false; }
+      } else { current += char; }
+    } else {
+      if (char === '"') { inQuotes = true; }
+      else if (char === ",") { result.push(current); current = ""; }
+      else { current += char; }
+    }
+  }
+  result.push(current);
+  return result;
+}
+
+function isMoodLevel(value) { return MOOD_LEVELS.includes(value); }
+
+function groupByDay(entries) {
+  const map = new Map();
+  for (const entry of entries) {
+    const existing = map.get(entry.date);
+    if (existing) { existing.push(entry); }
+    else { map.set(entry.date, [entry]); }
+  }
+  const days = [];
+  for (const [date, dayEntries] of map) {
+    dayEntries.sort((a, b) => a.time.localeCompare(b.time));
+    days.push({ date, entries: dayEntries });
+  }
+  days.sort((a, b) => a.date.localeCompare(b.date));
+  return days;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Inline port of src/graph-builder.ts
+// ═══════════════════════════════════════════════════════════════════════
+
+const GRAPH_HEIGHT      = 200;
+const LANE_COUNT        = MOOD_LEVELS.length;          // 5
+const LANE_HEIGHT       = GRAPH_HEIGHT / LANE_COUNT;   // 40
+const MOOD_BAR_HEIGHT   = Math.round(LANE_HEIGHT * 0.6);
+const MOOD_BAR_OFFSET   = Math.round((LANE_HEIGHT - MOOD_BAR_HEIGHT) / 2);
+const DATE_HEADER_HEIGHT = 44;
+const MIN_MONTH_LABEL_PX = 55;
+const LABEL_WIDTH       = 100;
+const LABEL_ROW_HEIGHT  = 22;
+const LABEL_H_PAD       = 6;
+const LEFT_PAD          = 20;
+const SVG_NS            = "http://www.w3.org/2000/svg";
+
+function svgEl(tag, attrs) {
+  const el = document.createElementNS(SVG_NS, tag);
+  if (attrs) for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  return el;
+}
+
+function buildGraphSvg(barWidth, days, vaultEvents, ctx) {
+  const BAR_WIDTH = barWidth;
+  const BAR_GAP   = barGapFor(barWidth);
+  const stride    = BAR_WIDTH + BAR_GAP;
+  const graphTop    = DATE_HEADER_HEIGHT;
+  const graphBottom = graphTop + GRAPH_HEIGHT;
+
+  // Vault event lookups
+  const eventsByDate = new Map();
+  for (const ev of vaultEvents) eventsByDate.set(ev.date, ev);
+  const sortedEvents = [...vaultEvents].sort((a, b) => a.date.localeCompare(b.date));
+
+  // Active event per day (two-pointer)
+  const dayActiveEvents = [];
+  {
+    let ePtr = 0, current;
+    for (const day of days) {
+      while (ePtr < sortedEvents.length && (sortedEvents[ePtr]?.date ?? "") <= day.date) {
+        current = sortedEvents[ePtr]; ePtr++;
+      }
+      dayActiveEvents.push(current);
+    }
+  }
+
+  // Event label row assignment (greedy collision avoidance)
+  const eventLabelRows = new Map();
+  {
+    const rowRightEdge = [];
+    for (let i = 0; i < days.length; i++) {
+      const day = days[i]; if (!day) continue;
+      const ev = eventsByDate.get(day.date); if (!ev) continue;
+      const cx = LEFT_PAD + i * stride + BAR_WIDTH / 2;
+      const left = cx - LABEL_WIDTH / 2, right = cx + LABEL_WIDTH / 2;
+      let row = 0;
+      while (row < rowRightEdge.length && (rowRightEdge[row] ?? -Infinity) > left - LABEL_H_PAD) row++;
+      rowRightEdge[row] = right;
+      eventLabelRows.set(day.date, row);
+    }
+  }
+  const numLabelRows = Math.max(1, eventLabelRows.size > 0 ? Math.max(...eventLabelRows.values()) + 1 : 0);
+  const labelAreaTop  = graphBottom + 8;
+  const totalHeight   = labelAreaTop + numLabelRows * LABEL_ROW_HEIGHT + 4;
+  const graphWidth    = days.length * stride - BAR_GAP + 40;
+
+  const svg = svgEl("svg", {
+    width: String(graphWidth), height: String(totalHeight),
+    viewBox: `0 0 ${graphWidth} ${totalHeight}`,
+    class: "daylio-graph-svg",
+  });
+
+  // Lane dividers
+  {
+    let d = "";
+    for (let lane = 1; lane < LANE_COUNT; lane++) {
+      const y = graphTop + lane * LANE_HEIGHT;
+      d += `M0 ${y}H${graphWidth}`;
+    }
+    svg.appendChild(svgEl("path", { d, class: "daylio-lane-divider" }));
+  }
+
+  // Month separators + labels
+  {
+    let sepPath = "", currentMonth = "", lastLabelX = -Infinity;
+    for (let i = 0; i < days.length; i++) {
+      const day = days[i]; if (!day) continue;
+      const monthStr = day.date.slice(0, 7);
+      if (monthStr === currentMonth) continue;
+      currentMonth = monthStr;
+      const x = LEFT_PAD + i * stride;
+      sepPath += `M${x - 2} 0V${graphBottom}`;
+      if (x - lastLabelX >= MIN_MONTH_LABEL_PX) {
+        lastLabelX = x;
+        const monthDate = new Date(day.date + "T00:00:00");
+        const monthName = monthDate.toLocaleString("default", { month: "short" });
+        const label = svgEl("text", { x: String(x + 2), y: "12", class: "daylio-month-label" });
+        label.textContent = `${monthName} ${monthDate.getFullYear()}`;
+        svg.appendChild(label);
+      }
+    }
+    svg.appendChild(svgEl("path", { d: sepPath, class: "daylio-month-line" }));
+  }
+
+  // Mood bars (one <path> per mood level)
+  const moodPaths = { rad: "", good: "", meh: "", bad: "", awful: "" };
+  for (let i = 0; i < days.length; i++) {
+    const day = days[i]; if (!day) continue;
+    const x = LEFT_PAD + i * stride;
+    for (const entry of day.entries) {
+      const laneIndex = MOOD_TO_LANE[entry.mood];
+      const barY = graphTop + laneIndex * LANE_HEIGHT + MOOD_BAR_OFFSET;
+      const rx = Math.min(2, BAR_WIDTH / 2);
+      const w = BAR_WIDTH, h = MOOD_BAR_HEIGHT;
+      moodPaths[entry.mood] +=
+        `M${x + rx},${barY}` +
+        `h${w - 2 * rx}` +
+        `a${rx},${rx} 0 0 1 ${rx},${rx}` +
+        `v${h - 2 * rx}` +
+        `a${rx},${rx} 0 0 1 ${-rx},${rx}` +
+        `h${-(w - 2 * rx)}` +
+        `a${rx},${rx} 0 0 1 ${-rx},${-rx}` +
+        `v${-(h - 2 * rx)}` +
+        `a${rx},${rx} 0 0 1 ${rx},${-rx}Z`;
+    }
+  }
+  for (const mood of MOOD_LEVELS) {
+    if (!moodPaths[mood]) continue;
+    svg.appendChild(svgEl("path", { d: moodPaths[mood], fill: ctx.moodColors[mood], class: "daylio-mood-bar" }));
+  }
+
+  // Date ticks
+  for (let i = 0; i < days.length; i++) {
+    const day = days[i]; if (!day) continue;
+    const dayOfMonth = parseInt(day.date.slice(8, 10), 10);
+    const showTick =
+      BAR_WIDTH >= 8 ? true :
+      BAR_WIDTH >= 5 ? dayOfMonth % 5 === 1 || dayOfMonth === 1 :
+      BAR_WIDTH >= 3 ? dayOfMonth % 10 === 1 || dayOfMonth === 1 : false;
+    if (showTick) {
+      const tick = svgEl("text", {
+        x: String(LEFT_PAD + i * stride + BAR_WIDTH / 2),
+        y: String(graphTop - 4),
+        class: "daylio-date-tick",
+      });
+      tick.textContent = String(dayOfMonth);
+      svg.appendChild(tick);
+    }
+  }
+
+  // Event labels + connectors
+  for (let i = 0; i < days.length; i++) {
+    const day = days[i]; if (!day) continue;
+    const event = eventsByDate.get(day.date); if (!event) continue;
+    const cx = LEFT_PAD + i * stride + BAR_WIDTH / 2;
+    const evRow = eventLabelRows.get(day.date) ?? 0;
+    const labelY = labelAreaTop + evRow * LABEL_ROW_HEIGHT;
+
+    svg.appendChild(svgEl("line", { x1: String(cx), y1: "0", x2: String(cx), y2: String(labelY), class: "daylio-event-connector" }));
+
+    const fo = svgEl("foreignObject", {
+      x: String(cx - LABEL_WIDTH / 2), y: String(labelY),
+      width: String(LABEL_WIDTH), height: String(LABEL_ROW_HEIGHT - 2),
+    });
+    const labelDiv = document.createElement("div");
+    labelDiv.className = "daylio-event-label";
+    labelDiv.textContent = event.label;
+    labelDiv.title = `${event.label} · ${event.date}`;
+    labelDiv.addEventListener("click", e => { e.preventDefault(); alert(`Would open: ${event.filePath}`); });
+    fo.appendChild(labelDiv);
+    svg.appendChild(fo);
+  }
+
+  // Shared hover-date label
+  const hoverDateLabel = svgEl("text", { class: "daylio-hover-date-label", y: String(graphBottom - 6), visibility: "hidden" });
+  svg.appendChild(hoverDateLabel);
+
+  // Event group overlays
+  const eventGroups = [];
+  {
+    let currentGroup = null;
+    for (let i = 0; i < days.length; i++) {
+      const activeEvent = dayActiveEvents[i];
+      if (activeEvent && currentGroup && activeEvent.filePath === currentGroup.event.filePath) {
+        currentGroup.endIdx = i;
+      } else if (activeEvent) {
+        currentGroup = { event: activeEvent, startIdx: i, endIdx: i };
+        eventGroups.push(currentGroup);
+      } else { currentGroup = null; }
+    }
+  }
+  for (const group of eventGroups) {
+    const g = svgEl("g", { class: "daylio-event-group" });
+    const groupTitle = svgEl("title");
+    groupTitle.textContent = `${group.event.label} · ${group.event.date}\nClick to open note`;
+    g.appendChild(groupTitle);
+
+    const startX = LEFT_PAD + group.startIdx * stride;
+    const endX   = LEFT_PAD + group.endIdx * stride + BAR_WIDTH;
+    g.appendChild(svgEl("rect", { x: String(startX), y: String(graphTop), width: String(endX - startX), height: String(GRAPH_HEIGHT), class: "daylio-range-bg" }));
+
+    const clickHandler = evt => { evt.stopPropagation(); alert(`Would open: ${group.event.filePath}`); };
+    for (let i = group.startIdx; i <= group.endIdx; i++) {
+      const dx = LEFT_PAD + i * stride;
+      const dayOverlay = svgEl("rect", { x: String(dx), y: String(graphTop), width: String(BAR_WIDTH), height: String(GRAPH_HEIGHT), class: "daylio-day-overlay" });
+      dayOverlay.addEventListener("click", clickHandler);
+      const dayDate = days[i]?.date ?? "";
+      dayOverlay.addEventListener("mouseenter", () => { hoverDateLabel.textContent = dayDate; hoverDateLabel.setAttribute("x", String(dx + BAR_WIDTH / 2)); hoverDateLabel.setAttribute("visibility", "visible"); });
+      dayOverlay.addEventListener("mouseleave", () => hoverDateLabel.setAttribute("visibility", "hidden"));
+      g.appendChild(dayOverlay);
+    }
+    svg.appendChild(g);
+  }
+  return svg;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Vault events from the test vault (matches scanVaultEvents output)
+// ═══════════════════════════════════════════════════════════════════════
+
+const VAULT_EVENTS = [
+  { date: "2019-04-15", label: "Started new job",          filePath: "entries/2019-04-15 New Job at Design Studio.md" },
+  { date: "2019-09-02", label: "Moved flats",              filePath: "entries/2019-09-02 Moved to New Apartment.md" },
+  { date: "2020-03-16", label: "Lockdown begins",          filePath: "entries/2020-03-16 Lockdown Begins.md" },
+  { date: "2020-11-03", label: "US election night",        filePath: "entries/2020-11-03 US Election Night.md" },
+  { date: "2021-03-01", label: "Anthropic founded",        filePath: "entries/2021-03-01 Anthropic Founded.md" },
+  { date: "2021-09-06", label: "Started therapy",          filePath: "entries/2021-09-06 Started Therapy.md" },
+  { date: "2022-05-14", label: "Sister's wedding",         filePath: "entries/2022-05-14 Sister Gets Married.md" },
+  { date: "2022-10-01", label: "Quit job",                 filePath: "entries/2022-10-01 Quit Job.md" },
+  { date: "2023-03-15", label: "Claude released to public",filePath: "entries/2023-03-15 Claude Released to Public.md" },
+  { date: "2023-07-22", label: "Holiday in Portugal",      filePath: "entries/2023-07-22 Holiday in Portugal.md" },
+  { date: "2024-01-08", label: "Took up running",          filePath: "entries/2024-01-08 Started Running.md" },
+  { date: "2024-09-30", label: "Got a cat",                filePath: "entries/2024-09-30 Got a Cat.md" },
+  { date: "2025-01-01", label: "New Year 2025",            filePath: "entries/2025-01-01 New Year.md" },
+  { date: "2025-03-10", label: "Got promoted",             filePath: "entries/2025-03-10 Promotion.md" },
+];
+
+// ═══════════════════════════════════════════════════════════════════════
+// UI wiring
+// ═══════════════════════════════════════════════════════════════════════
+
+let currentBarWidth = 8;
+let cachedDays = null;
+
+function render() {
+  if (!cachedDays) return;
+  const root = document.getElementById("root");
+
+  // Build toolbar
+  const toolbar = document.createElement("div");
+  toolbar.className = "daylio-graph-toolbar";
+
+  const zoomLabel = document.createElement("span");
+  zoomLabel.className = "daylio-zoom-label";
+  zoomLabel.textContent = "Zoom";
+
+  const minusBtn = document.createElement("button");
+  minusBtn.className = "daylio-zoom-btn";
+  minusBtn.textContent = "−";
+  minusBtn.onclick = () => { currentBarWidth = Math.max(0.5, currentBarWidth - 1); render(); };
+
+  const slider = document.createElement("input");
+  slider.type = "range";
+  slider.className = "daylio-zoom-slider";
+  slider.min = "0.5"; slider.max = "16"; slider.step = "0.5";
+  slider.value = String(currentBarWidth);
+  slider.oninput = () => { currentBarWidth = parseFloat(slider.value); render(); };
+
+  const plusBtn = document.createElement("button");
+  plusBtn.className = "daylio-zoom-btn";
+  plusBtn.textContent = "+";
+  plusBtn.onclick = () => { currentBarWidth = Math.min(16, currentBarWidth + 1); render(); };
+
+  const bwLabel = document.createElement("span");
+  bwLabel.className = "daylio-zoom-label";
+  bwLabel.textContent = `${currentBarWidth}px · ${cachedDays.length} days`;
+
+  toolbar.append(zoomLabel, minusBtn, slider, plusBtn, bwLabel);
+
+  // Build legend
+  const legend = document.createElement("div");
+  legend.className = "daylio-graph-legend";
+  for (const mood of [...MOOD_LEVELS].reverse()) {
+    const item = document.createElement("div");
+    item.className = "daylio-legend-item";
+    const swatch = document.createElement("span");
+    swatch.className = "daylio-legend-swatch";
+    swatch.style.background = DEFAULT_MOOD_COLORS[mood];
+    const lbl = document.createElement("span");
+    lbl.className = "daylio-legend-label";
+    lbl.textContent = mood;
+    item.append(swatch, lbl);
+    legend.appendChild(item);
+  }
+
+  // Build scrollable graph area (preserve scroll position)
+  const oldScroll = root.querySelector(".daylio-graph-scroll")?.scrollLeft ?? 0;
+  const scrollDiv = document.createElement("div");
+  scrollDiv.className = "daylio-graph-scroll";
+
+  const svg = buildGraphSvg(currentBarWidth, cachedDays, VAULT_EVENTS, {
+    moodColors: DEFAULT_MOOD_COLORS,
+    openFile: path => alert(`Would open: ${path}`),
+  });
+
+  // Ctrl+wheel zoom (mirrors graph-view.ts behaviour)
+  scrollDiv.addEventListener("wheel", evt => {
+    if (!evt.ctrlKey) return;
+    evt.preventDefault();
+    const delta = evt.deltaY > 0 ? -0.5 : 0.5;
+    currentBarWidth = Math.max(0.5, Math.min(16, currentBarWidth + delta));
+    render();
+  }, { passive: false });
+
+  scrollDiv.appendChild(svg);
+
+  root.innerHTML = "";
+  root.append(toolbar, legend, scrollDiv);
+  scrollDiv.scrollLeft = oldScroll;
+}
+
+// Load CSV and kick off rendering
+(async () => {
+  const statusEl = document.getElementById("csv-status");
+  try {
+    const res = await fetch("../daylio_plugin_test_vault/attachments/daylio_export.csv");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    const entries = parseDaylioCsv(text);
+    cachedDays = groupByDay(entries);
+    statusEl.className = "csv-status ok";
+    statusEl.textContent = `✓ Loaded ${entries.length.toLocaleString()} entries across ${cachedDays.length.toLocaleString()} days`;
+    render();
+  } catch (err) {
+    statusEl.className = "csv-status error";
+    statusEl.textContent = `✗ Could not load CSV: ${err.message}`;
+    document.getElementById("root").innerHTML =
+      `<div class="daylio-graph-notice">Failed to load CSV — run via the dev server (npm run preview).</div>`;
+  }
+})();
+</script>
+</body>
+</html>
