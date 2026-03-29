@@ -28,6 +28,8 @@ const VAULT_ROOT = path.resolve(
 	"../../daylio_plugin_test_vault"
 );
 const CSV_PATH = path.join(VAULT_ROOT, "attachments", "daylio_export.csv");
+// Dated notes live in a dedicated sub-directory, not at the vault root.
+const ENTRIES_DIR = path.join(VAULT_ROOT, "entries");
 
 // ─── Frontmatter parser unit tests ──────────────────────────────────
 // parseFrontmatter lives in a test helper, but it's complex enough to
@@ -187,7 +189,7 @@ describe("Vault events integration (test vault notes)", () => {
 	let eventsByDate: Map<string, VaultEventOnDisk>;
 
 	beforeAll(() => {
-		events = readVaultEventsFromDisk(VAULT_ROOT);
+		events = readVaultEventsFromDisk(ENTRIES_DIR);
 		eventsByDate = new Map();
 		// Last-writer wins — same logic as the plugin's renderGraph()
 		for (const event of events) {
@@ -320,6 +322,127 @@ describe("Vault events integration (test vault notes)", () => {
 	it("each event's filePath points to a file that actually exists on disk", () => {
 		for (const event of events) {
 			expect(fs.existsSync(event.filePath)).toBe(true);
+		}
+	});
+});
+
+// ─── Date range mismatch ──────────────────────────────────────────────
+//
+// The plugin renders a bar only for dates present in the CSV.  A vault
+// event whose date does not appear in the CSV therefore has no bar to
+// attach to and is silently ignored by the graph builder.
+//
+// The important contract being verified here is:
+//
+//   1. The scanner (readVaultEventsFromDisk / scanVaultEvents) is
+//      date-agnostic: it returns every valid event regardless of whether
+//      a matching DayData exists in the CSV.
+//
+//   2. The CSV parser (parseDaylioCsv + groupByDay) is also date-agnostic
+//      in the opposite direction: it never synthesises DayData for dates
+//      not present in the file.
+//
+//   3. Therefore the "drop silently" behaviour emerges purely from the
+//      graph builder's lookup (eventsByDate.get(day.date)), with no
+//      special-casing needed in either parser.
+//
+// Two anchor notes in entries/ exercise the two boundary cases:
+//   2018-12-25 Before CSV Range.md  — date precedes the CSV start (2019-02-15)
+//   2025-12-31 After CSV Range.md   — date follows the CSV end   (2025-04-01)
+
+describe("Date range mismatch — events outside the CSV date span", () => {
+	// Dates of the two purpose-built anchor notes.
+	const BEFORE_RANGE_DATE = "2018-12-25";
+	const AFTER_RANGE_DATE = "2025-12-31";
+
+	// CSV boundaries confirmed by the "earliest / most recent entry" tests above.
+	const CSV_FIRST_DATE = "2019-02-15";
+	const CSV_LAST_DATE = "2025-04-01";
+
+	let allDays: DayData[];
+	let csvDateSet: Set<string>;
+	let rangeEvents: VaultEventOnDisk[];
+
+	beforeAll(() => {
+		const csvText = fs.readFileSync(CSV_PATH, "utf8");
+		allDays = groupByDay(parseDaylioCsv(csvText));
+		csvDateSet = new Set(allDays.map((d) => d.date));
+		rangeEvents = readVaultEventsFromDisk(ENTRIES_DIR);
+	});
+
+	// ── Verify the anchor notes were written correctly ───────────────
+
+	it("the before-range anchor note produces a raw event with the expected date and label", () => {
+		const event = rangeEvents.find((e) => e.date === BEFORE_RANGE_DATE);
+		expect(event).toBeDefined();
+		expect(event?.label).toBe("Before CSV range");
+	});
+
+	it("the after-range anchor note produces a raw event with the expected date and label", () => {
+		const event = rangeEvents.find((e) => e.date === AFTER_RANGE_DATE);
+		expect(event).toBeDefined();
+		expect(event?.label).toBe("After CSV range");
+	});
+
+	// ── The scanner is date-agnostic ─────────────────────────────────
+
+	it("scanner returns the before-range event even though its date precedes the CSV", () => {
+		// The scanner must not filter by CSV coverage.
+		expect(BEFORE_RANGE_DATE < CSV_FIRST_DATE).toBe(true);
+		const event = rangeEvents.find((e) => e.date === BEFORE_RANGE_DATE);
+		expect(event).toBeDefined();
+	});
+
+	it("scanner returns the after-range event even though its date follows the CSV", () => {
+		expect(AFTER_RANGE_DATE > CSV_LAST_DATE).toBe(true);
+		const event = rangeEvents.find((e) => e.date === AFTER_RANGE_DATE);
+		expect(event).toBeDefined();
+	});
+
+	// ── The CSV parser produces no DayData for out-of-range dates ────
+
+	it("the CSV produces no DayData for the before-range date", () => {
+		// This is the "no bar to attach to" condition.
+		expect(csvDateSet.has(BEFORE_RANGE_DATE)).toBe(false);
+	});
+
+	it("the CSV produces no DayData for the after-range date", () => {
+		expect(csvDateSet.has(AFTER_RANGE_DATE)).toBe(false);
+	});
+
+	// ── The mismatch is clean: these events are genuinely out-of-range ─
+
+	it("every DayData date falls within the documented CSV span", () => {
+		for (const day of allDays) {
+			expect(day.date >= CSV_FIRST_DATE).toBe(true);
+			expect(day.date <= CSV_LAST_DATE).toBe(true);
+		}
+	});
+
+	it("every event with a valid calendar date inside the CSV span has a corresponding DayData", () => {
+		// Symmetry check: no event should claim a date that is mysteriously
+		// absent from the CSV even though it falls inside the span.  (The test
+		// CSV happens to have an entry for every calendar day in its range, so
+		// this also serves as a completeness assertion for that data set.)
+		//
+		// Dates that are syntactically well-formed but semantically invalid
+		// (e.g. "2024-13-45" — month 13 does not exist) are excluded from this
+		// check; they have no CSV bar regardless of their string position in the
+		// range, and that behaviour is already covered by the separate
+		// "includes the invalid-date note" test.
+		const isValidCalendarDate = (dateStr: string): boolean => {
+			const d = new Date(dateStr + "T00:00:00");
+			return !isNaN(d.getTime()) && d.toISOString().startsWith(dateStr);
+		};
+
+		const eventsInsideRange = rangeEvents.filter(
+			(e) =>
+				isValidCalendarDate(e.date) &&
+				e.date >= CSV_FIRST_DATE &&
+				e.date <= CSV_LAST_DATE,
+		);
+		for (const event of eventsInsideRange) {
+			expect(csvDateSet.has(event.date)).toBe(true);
 		}
 	});
 });

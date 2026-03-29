@@ -274,3 +274,84 @@ describe("groupByDay", () => {
 		}
 	});
 });
+
+// ─── groupByDay — date-range behaviour ──────────────────────────────
+//
+// The graph builder renders a bar column only for dates present in the
+// DayData array.  It is therefore important that groupByDay acts as a
+// pure grouping operation: the output date-set equals exactly the input
+// date-set.  No phantom entries are synthesised for calendar gaps, and
+// no entry is dropped because its date falls outside some range.
+
+describe("groupByDay — date range coverage", () => {
+	it("does not synthesise a DayData for a calendar date absent from the input", () => {
+		// Entries for Jan 1 and Jan 3; Jan 2 is intentionally absent.
+		const entries = [
+			{ date: "2024-01-01", time: "09:00", mood: "good" as const },
+			{ date: "2024-01-03", time: "09:00", mood: "meh" as const },
+		];
+		const days = groupByDay(entries);
+		expect(days).toHaveLength(2);
+		expect(days.map((d) => d.date)).toEqual(["2024-01-01", "2024-01-03"]);
+		// The gap date must not produce a phantom DayData.
+		expect(days.find((d) => d.date === "2024-01-02")).toBeUndefined();
+	});
+
+	it("preserves entries whose dates fall before the bulk of the data", () => {
+		// One early entry sitting well before the rest of the data; it must
+		// appear as the first element in the sorted output, not be silently
+		// discarded as "out of range".
+		const entries = [
+			{ date: "2020-01-01", time: "08:00", mood: "rad" as const },
+			{ date: "2024-06-15", time: "08:00", mood: "good" as const },
+			{ date: "2024-06-16", time: "08:00", mood: "meh" as const },
+		];
+		const days = groupByDay(entries);
+		expect(days[0]?.date).toBe("2020-01-01");
+		expect(days[0]?.entries[0]?.mood).toBe("rad");
+	});
+
+	it("preserves entries whose dates fall after the bulk of the data", () => {
+		// One late entry sitting well after the rest of the data; it must
+		// appear as the last element in the sorted output.
+		const entries = [
+			{ date: "2020-06-14", time: "08:00", mood: "good" as const },
+			{ date: "2020-06-15", time: "08:00", mood: "meh" as const },
+			{ date: "2026-12-31", time: "08:00", mood: "bad" as const },
+		];
+		const days = groupByDay(entries);
+		const lastDay = days[days.length - 1];
+		expect(lastDay?.date).toBe("2026-12-31");
+		expect(lastDay?.entries[0]?.mood).toBe("bad");
+	});
+
+	it("output date-set equals exactly the input date-set, no more, no less", () => {
+		// Sparse, non-contiguous dates spanning several years.
+		const inputDates = [
+			"2019-03-01",
+			"2021-07-04",
+			"2021-07-05", // consecutive pair — tests that runs don't collapse
+			"2023-11-11",
+			"2025-01-01",
+		];
+		const entries = inputDates.map((date) => ({
+			date,
+			time: "12:00",
+			mood: "meh" as const,
+		}));
+		const days = groupByDay(entries);
+		expect(days.map((d) => d.date)).toEqual(inputDates);
+	});
+
+	it("handles a multi-year gap between the first and last entry without error", () => {
+		// Edge case: only two entries separated by several years.
+		const entries = [
+			{ date: "2010-01-01", time: "10:00", mood: "awful" as const },
+			{ date: "2024-12-31", time: "22:00", mood: "rad" as const },
+		];
+		const days = groupByDay(entries);
+		expect(days).toHaveLength(2);
+		expect(days[0]?.date).toBe("2010-01-01");
+		expect(days[1]?.date).toBe("2024-12-31");
+	});
+});

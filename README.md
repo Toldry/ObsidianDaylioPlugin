@@ -47,8 +47,8 @@ over an event's range highlights the full period that event spans.
 
 ### 1. Export your data from Daylio
 
-In the Daylio app: More → Export → Export to CSV. Move the resulting file
-into your vault — `attachments/daylio_export.csv` is a reasonable location.
+In the Daylio app: **More → Export Entries → CSV (table)**. 
+Move the resulting file into your vault — `attachments/daylio_export.csv` is a reasonable location.
 
 ### 2. Tell the plugin where the CSV is
 
@@ -176,4 +176,4 @@ conventions.
 
 ## Licence
 
-MIT
+MIT — open-source software. Use it, fork it, and contribute back freely.

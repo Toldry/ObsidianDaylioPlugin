@@ -4,6 +4,7 @@ import {
 	DEFAULT_MOOD_COLORS,
 	type HasDaylioSettings,
 } from "./types";
+import { DATE_PREFIX_REGEX } from "./vault-scanner";
 
 export class DaylioSettingTab extends PluginSettingTab {
 	plugin: HasDaylioSettings;
@@ -61,12 +62,23 @@ export class DaylioSettingTab extends PluginSettingTab {
 			});
 
 		// ── Event scan directory ─────────────────────────────────
-		new Setting(containerEl)
-			.setName("Event scan directory")
-			.setDesc(
+		const scanDirDesc = (dir: string): string => {
+			const base =
 				"Vault-relative subdirectory to scan for event notes (e.g. entries). " +
-				"Leave blank to scan the whole vault."
-			)
+				"Leave blank to scan the whole vault.";
+			const trimmed = dir.trim();
+			if (!trimmed) return base;
+			const prefix = trimmed.replace(/\/+$/, "") + "/";
+			const count = this.app.vault
+				.getMarkdownFiles()
+				.filter((f) => f.path.startsWith(prefix) && DATE_PREFIX_REGEX.test(f.basename))
+				.length;
+			return `${base} — ${count} valid date-prefixed note${count === 1 ? "" : "s"} found in "${trimmed}".`;
+		};
+
+		const scanDirSetting = new Setting(containerEl)
+			.setName("Event scan directory")
+			.setDesc(scanDirDesc(this.plugin.settings.eventScanDir))
 			.addText((text) =>
 				text
 					.setPlaceholder("entries")
@@ -74,6 +86,7 @@ export class DaylioSettingTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						this.plugin.settings.eventScanDir = value.trim();
 						await this.plugin.saveSettings();
+						scanDirSetting.setDesc(scanDirDesc(value));
 					})
 			);
 
