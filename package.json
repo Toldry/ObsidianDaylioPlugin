@@ -10,7 +10,7 @@
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"test:coverage": "vitest run --coverage",
-		"install:vault": "node -e \"const fs=require('fs'),d='daylio_plugin_test_vault/.obsidian/plugins/daylio-mood-graph/';['main.js','manifest.json','styles.css'].forEach(f=>fs.copyFileSync(f,d+f))\"",
+		"install:vault": "node -e \"const fs=require('fs'),d='daylio_plugin_test_vault/.obsidian/plugins/daylio-mood-graph/';['main.js','main.js.map','manifest.json','styles.css'].forEach(f=>fs.copyFileSync(f,d+f))\"",
 		"build:vault": "npm run build && npm run install:vault",
 		"preview": "npx serve . --cors -p 5173"
 	},

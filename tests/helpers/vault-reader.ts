@@ -13,7 +13,7 @@ import path from "path";
 
 export interface VaultEventOnDisk {
 	date: string;
-	label: string;
+	label?: string;  // only present when daylio_event frontmatter is set
 	filePath: string;
 }
 
@@ -53,11 +53,12 @@ export function parseFrontmatter(
 }
 
 /**
- * Scan the top-level markdown files in `vaultPath` and return vault events
+ * Scan the top-level markdown files in `vaultPath` and return vault entries
  * following the same rules as scanVaultEvents():
  *
  *  - Filename must start with YYYY-MM-DD.
- *  - `daylio_event` frontmatter field must be a non-empty string.
+ *  - All such files are included; `label` is only set when `daylio_event`
+ *    frontmatter is a non-empty string.
  *  - Returned in alphabetical filename order (deterministic for tests).
  *  - Duplicate dates produce multiple entries (matching plugin behaviour).
  */
@@ -81,13 +82,14 @@ export function readVaultEventsFromDisk(
 		const frontmatter = parseFrontmatter(content);
 
 		const eventValue = frontmatter?.["daylio_event"];
-		if (typeof eventValue !== "string" || eventValue.trim() === "") {
-			continue;
-		}
+		const label =
+			typeof eventValue === "string" && eventValue.trim()
+				? eventValue.trim()
+				: undefined;
 
 		events.push({
 			date: dateMatch[1],
-			label: eventValue.trim(),
+			label,
 			filePath,
 		});
 	}

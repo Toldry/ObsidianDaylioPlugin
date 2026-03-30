@@ -17,7 +17,7 @@ npm install
 # Development — watch mode, rebuilds on every save, includes source maps
 npm run dev
 
-# Production — type-checks first, then builds minified bundle with no source maps
+# Production — type-checks first, then builds minified bundle with source maps
 npm run build
 
 # Run the test suite once
@@ -39,6 +39,17 @@ after a change, press Ctrl+R (or Cmd+R) inside Obsidian to reload the app.
 
 The compiled output is `main.js` in the project root. Obsidian loads this
 file, not the TypeScript sources directly.
+
+### Source maps and debugging
+
+- **Dev** (`npm run dev`): `sourcemap: "inline"` — the full source map is
+  embedded as a base64 data URI inside `main.js`. No external `.map` file is
+  fetched, so Obsidian's `app://` scheme never blocks it. After reloading
+  Obsidian, TypeScript files appear under DevTools → Sources → Page →
+  `plugin:daylio-mood-graph` → `src/`.
+- **Prod** (`npm run build`): `sourcemap: "linked"` — writes `main.js.map`
+  as a separate file and adds a `//# sourceMappingURL=main.js.map` comment.
+  Ship `main.js.map` alongside `main.js` as a release asset.
 
 ## Project structure
 
@@ -75,7 +86,8 @@ daylio-obsidian-plugin/
 ├── vitest.config.ts             ← Test runner config (aliases obsidian → mock)
 ├── esbuild.config.mjs
 ├── styles.css                   ← All CSS (uses Obsidian CSS variables)
-└── main.js                      ← Compiled output — do not edit by hand
+├── main.js                      ← Compiled output — do not edit by hand
+└── main.js.map                  ← External source map — do not edit by hand
 ```
 
 ## Architecture
@@ -126,11 +138,11 @@ plugin folder:
 
 ```bash
 # Unix/macOS
-cp main.js manifest.json styles.css \
+cp main.js main.js.map manifest.json styles.css \
   daylio_plugin_test_vault/.obsidian/plugins/daylio-mood-graph/
 
 # PowerShell
-Copy-Item main.js, manifest.json, styles.css `
+Copy-Item main.js, main.js.map, manifest.json, styles.css `
   daylio_plugin_test_vault\.obsidian\plugins\daylio-mood-graph\
 ```
 
@@ -241,10 +253,11 @@ The graph builder (`src/graph-builder.ts`) is optimised for fast zoom redraws:
 
 ## Releasing
 
-The three files Obsidian needs are `main.js`, `manifest.json`, and
+The files Obsidian needs are `main.js`, `main.js.map`, `manifest.json`, and
 `styles.css`. When publishing a new version:
 
 1. Bump `version` in `manifest.json` (and `package.json`).
 2. Run `npm run build`.
 3. Create a GitHub release tagged with the version number (e.g. `1.0.0`).
-4. Attach `main.js`, `manifest.json`, and `styles.css` as release assets.
+4. Attach `main.js`, `main.js.map`, `manifest.json`, and `styles.css` as
+   release assets.

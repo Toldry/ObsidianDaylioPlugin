@@ -88,7 +88,7 @@ describe("scanVaultEvents", () => {
 		expect(scanVaultEvents(app)).toHaveLength(0);
 	});
 
-	it("skips a note with an empty daylio_event string", () => {
+	it("includes a dated note with empty daylio_event as an unlabelled entry", () => {
 		const app = buildMockApp([
 			{
 				basename: "2024-07-04 Empty event",
@@ -96,10 +96,13 @@ describe("scanVaultEvents", () => {
 				frontmatter: { daylio_event: "" },
 			},
 		]);
-		expect(scanVaultEvents(app)).toHaveLength(0);
+		const events = scanVaultEvents(app);
+		expect(events).toHaveLength(1);
+		expect(events[0]?.label).toBeUndefined();
+		expect(events[0]?.date).toBe("2024-07-04");
 	});
 
-	it("skips a note with a whitespace-only daylio_event string", () => {
+	it("includes a dated note with whitespace-only daylio_event as unlabelled", () => {
 		const app = buildMockApp([
 			{
 				basename: "2024-07-05 Whitespace event",
@@ -107,10 +110,12 @@ describe("scanVaultEvents", () => {
 				frontmatter: { daylio_event: "   " },
 			},
 		]);
-		expect(scanVaultEvents(app)).toHaveLength(0);
+		const events = scanVaultEvents(app);
+		expect(events).toHaveLength(1);
+		expect(events[0]?.label).toBeUndefined();
 	});
 
-	it("skips a note with no frontmatter at all", () => {
+	it("includes a dated note with no frontmatter as an unlabelled entry", () => {
 		const app = buildMockApp([
 			{
 				basename: "2024-08-01 Plain note",
@@ -118,10 +123,12 @@ describe("scanVaultEvents", () => {
 				frontmatter: null,
 			},
 		]);
-		expect(scanVaultEvents(app)).toHaveLength(0);
+		const events = scanVaultEvents(app);
+		expect(events).toHaveLength(1);
+		expect(events[0]?.label).toBeUndefined();
 	});
 
-	it("skips a note whose frontmatter lacks a daylio_event key", () => {
+	it("includes a dated note without a daylio_event key as unlabelled", () => {
 		const app = buildMockApp([
 			{
 				basename: "2024-09-10 Tagged note",
@@ -129,10 +136,12 @@ describe("scanVaultEvents", () => {
 				frontmatter: { tags: ["journal"], title: "Something else" },
 			},
 		]);
-		expect(scanVaultEvents(app)).toHaveLength(0);
+		const events = scanVaultEvents(app);
+		expect(events).toHaveLength(1);
+		expect(events[0]?.label).toBeUndefined();
 	});
 
-	it("skips a note where daylio_event is a non-string (e.g. a number)", () => {
+	it("includes a dated note where daylio_event is a non-string (e.g. number) as unlabelled", () => {
 		const app = buildMockApp([
 			{
 				basename: "2024-10-01 Numeric event",
@@ -140,10 +149,12 @@ describe("scanVaultEvents", () => {
 				frontmatter: { daylio_event: 42 },
 			},
 		]);
-		expect(scanVaultEvents(app)).toHaveLength(0);
+		const events = scanVaultEvents(app);
+		expect(events).toHaveLength(1);
+		expect(events[0]?.label).toBeUndefined();
 	});
 
-	it("skips a note where daylio_event is null", () => {
+	it("includes a dated note where daylio_event is null as unlabelled", () => {
 		const app = buildMockApp([
 			{
 				basename: "2024-10-02 Null event",
@@ -151,11 +162,14 @@ describe("scanVaultEvents", () => {
 				frontmatter: { daylio_event: null },
 			},
 		]);
-		expect(scanVaultEvents(app)).toHaveLength(0);
+		const events = scanVaultEvents(app);
+		expect(events).toHaveLength(1);
+		expect(events[0]?.label).toBeUndefined();
 	});
 
-	it("skips a note where the cache itself is null", () => {
-		// buildMockApp returns null cache when frontmatter is null
+	it("includes a dated note even when the metadata cache is null", () => {
+		// Cache is null when frontmatter is null in buildMockApp.
+		// The date comes from the filename so the entry is still returned.
 		const app = buildMockApp([
 			{
 				basename: "2024-11-01 No cache",
@@ -163,7 +177,10 @@ describe("scanVaultEvents", () => {
 				frontmatter: null,
 			},
 		]);
-		expect(scanVaultEvents(app)).toHaveLength(0);
+		const events = scanVaultEvents(app);
+		expect(events).toHaveLength(1);
+		expect(events[0]?.label).toBeUndefined();
+		expect(events[0]?.filePath).toBe("2024-11-01 No cache.md");
 	});
 
 	it("returns one event per valid dated note", () => {

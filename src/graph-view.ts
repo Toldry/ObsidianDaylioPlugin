@@ -1,4 +1,5 @@
 import { App, ItemView, Notice, TFile, WorkspaceLeaf } from "obsidian";
+import log from "./log";
 import {
 	MOOD_LEVELS,
 	VIEW_TYPE_DAYLIO,
@@ -39,26 +40,31 @@ export class DaylioGraphView extends ItemView {
 	}
 
 	async onOpen(): Promise<void> {
+		log("view opened");
 		await this.renderGraph();
 	}
 
 	async onClose(): Promise<void> {
+		log("view closed");
 		clearTimeout(this.zoomDebounceTimer);
 		this.containerEl.empty();
 	}
 
 	/** Open a vault file by path, with error notice on failure. */
 	private openFile(filePath: string): void {
+		log("opening file:", filePath);
 		const target = this.app.vault.getAbstractFileByPath(filePath);
 		if (target instanceof TFile) {
 			this.app.workspace.getLeaf(false).openFile(target);
 		} else {
+			console.warn("[daylio] file not found in vault:", filePath);
 			new Notice(`Could not find note: ${filePath}`);
 		}
 	}
 
 	/** Full re-render — called on open and when settings change. */
 	async renderGraph(): Promise<void> {
+		log("renderGraph: starting full render");
 		const container = this.containerEl.children[1] as HTMLElement;
 
 		if (this.scrollContainer) {
@@ -77,15 +83,18 @@ export class DaylioGraphView extends ItemView {
 		// ── Load CSV ────────────────────────────────────────────
 		const csvPath = this.plugin.settings.csvPath;
 		if (!csvPath) {
+			log("renderGraph: no CSV path configured");
 			container.createEl("p", {
 				text: "No CSV path configured. Open the Daylio Mood Graph settings to set the path to your Daylio export.",
 				cls: "daylio-graph-notice",
 			});
 			return;
 		}
+		log("renderGraph: CSV path is", csvPath);
 
 		const csvFile = this.app.vault.getAbstractFileByPath(csvPath);
 		if (!(csvFile instanceof TFile)) {
+			log("renderGraph: CSV file not found at path:", csvPath);
 			container.createEl("p", {
 				text: `CSV file not found at "${csvPath}". Check the path in settings.`,
 				cls: "daylio-graph-notice",
@@ -96,7 +105,9 @@ export class DaylioGraphView extends ItemView {
 		let csvText: string;
 		try {
 			csvText = await this.app.vault.read(csvFile);
-		} catch {
+			log("renderGraph: CSV read successfully,", csvText.length, "chars");
+		} catch (error) {
+			console.warn("[daylio] renderGraph: failed to read CSV:", error);
 			container.createEl("p", {
 				text: "Failed to read the CSV file.",
 				cls: "daylio-graph-notice",
@@ -106,6 +117,7 @@ export class DaylioGraphView extends ItemView {
 
 		const allEntries = parseDaylioCsv(csvText);
 		if (allEntries.length === 0) {
+			log("renderGraph: no valid mood entries found in CSV");
 			container.createEl("p", {
 				text: "No valid mood entries found in the CSV.",
 				cls: "daylio-graph-notice",
@@ -181,8 +193,15 @@ export class DaylioGraphView extends ItemView {
 		plusBtn.addEventListener("click", () => stepZoom(0.5));
 
 		// ── Collect vault events + cache parsed data ────────────
-		this.cachedVaultEvents = scanVaultEvents(this.app, this.plugin.settings.eventScanDir || undefined);
+		this.cachedVaultEvents = scanVaultEvents(
+			this.app,
+			this.plugin.settings.eventScanDir || undefined,
+		);
 		this.cachedDays = groupByDay(allEntries);
+		log(
+			"renderGraph: cached", this.cachedDays.length, "days and",
+			this.cachedVaultEvents.length, "vault events",
+		);
 
 		// ── Mood legend ─────────────────────────────────────────
 		const legend = container.createDiv({ cls: "daylio-graph-legend" });
@@ -198,6 +217,8 @@ export class DaylioGraphView extends ItemView {
 		this.scrollContainer = container.createDiv({
 			cls: "daylio-graph-scroll",
 		});
+
+		this.setupDragPan(this.scrollContainer);
 
 		this.scrollContainer.addEventListener(
 			"wheel",
@@ -252,6 +273,69 @@ export class DaylioGraphView extends ItemView {
 		});
 	}
 
+	/**
+	 * Attach drag-to-pan behaviour to the horizontal scroll container.
+	 *
+	 * Left-mouse-drag translates to horizontal scroll.  A small drag
+	 * distance threshold (> 4 px) gates whether the pointer-up is
+	 * treated as a click so that vault-entry click handlers are not
+	 * triggered when the user releases the mouse after panning.
+	 *
+	 * Cursor changes:
+	 *   default          → grab   (via CSS on .daylio-graph-scroll)
+	 *   hovering entry   → pointer (via CSS on .daylio-entry-group)
+	 *   while panning    → grabbing (via class on document.body, !important
+	 *                               so it wins over child pointer cursors)
+	 */
+	private setupDragPan(scrollEl: HTMLElement): void {
+		let isDragging = false;
+		let startX = 0;
+		let startScrollLeft = 0;
+		let totalDragPx = 0;
+
+		this.registerDomEvent(scrollEl, "mousedown", (evt: MouseEvent) => {
+			if (evt.button !== 0) return;
+			isDragging = true;
+			totalDragPx = 0;
+			startX = evt.clientX;
+			startScrollLeft = scrollEl.scrollLeft;
+			document.body.classList.add("daylio-is-panning");
+			// Prevent text selection while dragging.
+			evt.preventDefault();
+		});
+
+		this.registerDomEvent(document, "mousemove", (evt: MouseEvent) => {
+			if (!isDragging) return;
+			// Dragging right (positive clientX delta) scrolls left, and
+			// vice versa — matches the feel of moving content under the hand.
+			const delta = startX - evt.clientX;
+			totalDragPx = Math.abs(delta);
+			scrollEl.scrollLeft = startScrollLeft + delta;
+		});
+
+		this.registerDomEvent(document, "mouseup", () => {
+			if (!isDragging) return;
+			isDragging = false;
+			document.body.classList.remove("daylio-is-panning");
+		});
+
+		// Suppress clicks that were actually the end of a pan gesture.
+		// Runs in capture phase so it intercepts before child handlers
+		// (day overlays, event labels) see the event.
+		this.registerDomEvent(
+			scrollEl,
+			"click",
+			(evt: MouseEvent) => {
+				if (totalDragPx > 4) {
+					evt.stopPropagation();
+					evt.preventDefault();
+					totalDragPx = 0;
+				}
+			},
+			{ capture: true },
+		);
+	}
+
 	/** Thin wrapper around the pure graph builder, passing context. */
 	private buildSvg(barWidth: number): SVGSVGElement {
 		return buildGraphSvg(barWidth, this.cachedDays, this.cachedVaultEvents, {
@@ -273,6 +357,10 @@ export class DaylioGraphView extends ItemView {
 		},
 	): void {
 		if (!this.scrollContainer || this.cachedDays.length === 0) return;
+		log(
+			"quickRedraw:", this.plugin.settings.barWidth, "→", newWidth,
+			anchor ? "(cursor-anchored)" : "(ratio-based scroll)",
+		);
 		this.plugin.settings.barWidth = newWidth;
 		if (this.zoomSlider) {
 			this.zoomSlider.value = String(newWidth);

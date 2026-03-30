@@ -92,6 +92,16 @@
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 6px;
 	background: var(--background-primary);
+	cursor: grab;
+}
+
+/* Applied to document.body while a pan drag is active.         */
+/* !important overrides child cursor rules (pointer on entries) */
+/* so the grabbing cursor is consistent across the whole graph. */
+.daylio-is-panning,
+.daylio-is-panning * {
+	cursor: grabbing !important;
+	user-select: none;
 }
 
 .daylio-graph-svg {
@@ -127,7 +137,7 @@
 	font-family: var(--font-interface);
 }
 
-/* ── Hover date label ──────────────────────────────────────── */
+/* ── Hover date + name labels ──────────────────────────────── */
 
 .daylio-hover-date-label {
 	font-size: 9px;
@@ -137,29 +147,43 @@
 	pointer-events: none;   /* don't interfere with mouse events */
 }
 
-/* ── Active-event clickable overlays ───────────────────────── */
+.daylio-hover-name-label {
+	font-size: 8px;
+	font-family: var(--font-interface);
+	fill: var(--text-muted);
+	text-anchor: middle;
+	pointer-events: none;
+}
 
-/* The <g> wrapping one event's range. cursor:pointer applies   */
-/* to everything inside so the whole area looks clickable.      */
-.daylio-event-group {
+/* ── Vault entry overlays ───────────────────────────────────── */
+
+/* The <g> wrapping one entry's date span. cursor:pointer        */
+/* applies to everything inside so the whole area is clickable. */
+.daylio-entry-group {
 	cursor: pointer;
 }
 
-/* Wide background covering the full event date range.          */
-/* Shown faintly when *any* child of the group is hovered.      */
+/* Wide background covering the full entry date span.           */
+/* Shown faintly when any child of the group is hovered.        */
+/* pointer-events: all is required because fill: transparent    */
+/* is treated as unpainted under SVG's default visiblePainted   */
+/* hit-testing model, which would suppress mouse events.        */
 .daylio-range-bg {
 	fill: transparent;
+	pointer-events: all;
 }
 
-.daylio-event-group:hover .daylio-range-bg {
+.daylio-entry-group:hover .daylio-range-bg {
 	fill: var(--interactive-accent);
 	fill-opacity: 0.08;
 }
 
 /* Narrow overlay covering exactly one day column.              */
 /* Shown more strongly when that specific column is hovered.    */
+/* pointer-events: all — same reason as .daylio-range-bg above. */
 .daylio-day-overlay {
 	fill: transparent;
+	pointer-events: all;
 }
 
 .daylio-day-overlay:hover {

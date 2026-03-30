@@ -263,20 +263,25 @@ describe("Vault events integration (test vault notes)", () => {
 		expect(eventsByDate.get("2025-03-10")?.label).toBe("Got promoted");
 	});
 
-	// ── Notes that MUST NOT produce events ──────────────────────────
+	// ── Dated notes without a daylio_event label ────────────────────
+	// These produce VaultEvent entries (and get a column marker on the
+	// graph) but carry no label property.
 
-	it("excludes the note with an empty daylio_event (2020-07-04)", () => {
-		// daylio_event: "" → excluded
-		expect(eventsByDate.has("2020-07-04")).toBe(false);
+	it("includes the note with an empty daylio_event (2020-07-04) but without a label", () => {
+		expect(eventsByDate.has("2020-07-04")).toBe(true);
+		expect(eventsByDate.get("2020-07-04")?.label).toBeUndefined();
 	});
 
-	it("excludes dated notes that have no daylio_event frontmatter key", () => {
+	it("includes dated notes with no daylio_event key but without labels", () => {
 		// 2022-08-19 Random Journal Entry — no daylio_event
-		expect(eventsByDate.has("2022-08-19")).toBe(false);
+		expect(eventsByDate.has("2022-08-19")).toBe(true);
+		expect(eventsByDate.get("2022-08-19")?.label).toBeUndefined();
 		// 2023-11-05 Film Review — no daylio_event
-		expect(eventsByDate.has("2023-11-05")).toBe(false);
+		expect(eventsByDate.has("2023-11-05")).toBe(true);
+		expect(eventsByDate.get("2023-11-05")?.label).toBeUndefined();
 		// 2024-06-03 Reading Notes — no daylio_event
-		expect(eventsByDate.has("2024-06-03")).toBe(false);
+		expect(eventsByDate.has("2024-06-03")).toBe(true);
+		expect(eventsByDate.get("2024-06-03")?.label).toBeUndefined();
 	});
 
 	it("excludes notes whose filenames do not begin with a date", () => {
@@ -312,10 +317,14 @@ describe("Vault events integration (test vault notes)", () => {
 		expect(duplicates).toHaveLength(2);
 	});
 
-	it("each raw event has a non-empty label and a filePath ending in .md", () => {
+	it("every raw entry has a filePath ending in .md; labelled entries have non-empty labels", () => {
 		for (const event of events) {
-			expect(event.label.trim().length).toBeGreaterThan(0);
 			expect(event.filePath).toMatch(/\.md$/);
+			// If a label is present it must be non-empty (whitespace is stripped
+			// before setting the field; undefined means no daylio_event).
+			if (event.label !== undefined) {
+				expect(event.label.trim().length).toBeGreaterThan(0);
+			}
 		}
 	});
 
@@ -323,6 +332,82 @@ describe("Vault events integration (test vault notes)", () => {
 		for (const event of events) {
 			expect(fs.existsSync(event.filePath)).toBe(true);
 		}
+	});
+});
+
+// ─── Per-entry marker cluster (Edinburgh trip, March 2024) ───────────
+//
+// Five consecutive notes in entries/ exercise the new independent-marker
+// behaviour.  Two carry a daylio_event label; three do not.  Under the
+// old group-span logic these would have been collapsed into a single
+// wide rectangle.  The new logic gives each note its own column marker,
+// independent of whether a label is present.
+
+describe("Edinburgh trip cluster — independent entry markers", () => {
+	let events: VaultEventOnDisk[];
+	let byDate: Map<string, VaultEventOnDisk>;
+
+	beforeAll(() => {
+		events = readVaultEventsFromDisk(ENTRIES_DIR);
+		byDate = new Map(events.map((e) => [e.date, e]));
+	});
+
+	// ── Labelled entries (daylio_event set) ─────────────────────────
+
+	it("2024-03-18 is present with label 'Edinburgh trip'", () => {
+		expect(byDate.get("2024-03-18")?.label).toBe("Edinburgh trip");
+	});
+
+	it("2024-03-22 is present with label 'Back from Edinburgh'", () => {
+		expect(byDate.get("2024-03-22")?.label).toBe("Back from Edinburgh");
+	});
+
+	// ── Unlabelled entries (no daylio_event) ────────────────────────
+	// Each date should produce a VaultEvent for the column marker,
+	// but with label === undefined.
+
+	it("2024-03-19 is present without a label", () => {
+		expect(byDate.has("2024-03-19")).toBe(true);
+		expect(byDate.get("2024-03-19")?.label).toBeUndefined();
+	});
+
+	it("2024-03-20 is present without a label", () => {
+		expect(byDate.has("2024-03-20")).toBe(true);
+		expect(byDate.get("2024-03-20")?.label).toBeUndefined();
+	});
+
+	it("2024-03-21 is present without a label", () => {
+		expect(byDate.has("2024-03-21")).toBe(true);
+		expect(byDate.get("2024-03-21")?.label).toBeUndefined();
+	});
+
+	// ── All five are within the CSV date range ───────────────────────
+
+	it("all five cluster dates fall within the CSV data range", () => {
+		const clusterDates = [
+			"2024-03-18", "2024-03-19", "2024-03-20",
+			"2024-03-21", "2024-03-22",
+		];
+		const csvText = fs.readFileSync(CSV_PATH, "utf8");
+		const csvDateSet = new Set(
+			groupByDay(parseDaylioCsv(csvText)).map((d) => d.date)
+		);
+		for (const date of clusterDates) {
+			expect(csvDateSet.has(date)).toBe(true);
+		}
+	});
+
+	// ── Structural invariant ─────────────────────────────────────────
+	// The three unlabelled entries in the cluster must NOT suppress the
+	// labelled bookends — all five must be returned by the scanner.
+
+	it("all five cluster entries appear in the raw scan output", () => {
+		const clusterDates = new Set([
+			"2024-03-18", "2024-03-19", "2024-03-20",
+			"2024-03-21", "2024-03-22",
+		]);
+		const found = events.filter((e) => clusterDates.has(e.date));
+		expect(found).toHaveLength(5);
 	});
 });
 

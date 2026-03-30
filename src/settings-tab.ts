@@ -1,4 +1,5 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
+import log from "./log";
 import {
 	MOOD_LEVELS,
 	DEFAULT_MOOD_COLORS,
@@ -15,6 +16,7 @@ export class DaylioSettingTab extends PluginSettingTab {
 	}
 
 	display(): void {
+		log("settings tab displayed");
 		const { containerEl } = this;
 		containerEl.empty();
 
@@ -56,6 +58,7 @@ export class DaylioSettingTab extends PluginSettingTab {
 				dropdown
 					.setValue(currentPath)
 					.onChange(async (value) => {
+						log("CSV path changed to:", value || "(none)");
 						this.plugin.settings.csvPath = value;
 						await this.plugin.saveSettings();
 					});
@@ -84,7 +87,12 @@ export class DaylioSettingTab extends PluginSettingTab {
 					.setPlaceholder("entries")
 					.setValue(this.plugin.settings.eventScanDir)
 					.onChange(async (value) => {
-						this.plugin.settings.eventScanDir = value.trim();
+						const trimmed = value.trim();
+						log(
+							"event scan directory changed to:",
+							trimmed || "(whole vault)",
+						);
+						this.plugin.settings.eventScanDir = trimmed;
 						await this.plugin.saveSettings();
 						scanDirSetting.setDesc(scanDirDesc(value));
 					})
@@ -99,6 +107,7 @@ export class DaylioSettingTab extends PluginSettingTab {
 					picker
 						.setValue(this.plugin.settings.moodColors[mood])
 						.onChange(async (value) => {
+							log("mood color changed:", mood, "→", value);
 							this.plugin.settings.moodColors[mood] = value;
 							await this.plugin.saveSettings();
 						}),
@@ -109,6 +118,7 @@ export class DaylioSettingTab extends PluginSettingTab {
 			.setName("Reset colours to defaults")
 			.addButton((btn) =>
 				btn.setButtonText("Reset").onClick(async () => {
+					log("resetting mood colors to defaults");
 					this.plugin.settings.moodColors = {
 						...DEFAULT_MOOD_COLORS,
 					};

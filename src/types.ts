@@ -28,10 +28,18 @@ export interface DayData {
 	entries: MoodEntry[];
 }
 
-/** An event label sourced from a vault note's frontmatter. */
+/**
+ * A dated vault note that annotates the graph.
+ *
+ * Every note whose filename begins with YYYY-MM-DD produces a
+ * VaultEvent.  The optional `label` is only present when the note's
+ * frontmatter contains a non-empty `daylio_event` field — notes
+ * without that field still receive a column highlight on the graph
+ * but do not display a text label.
+ */
 export interface VaultEvent {
 	date: string;       // "YYYY-MM-DD"
-	label: string;
+	label?: string;     // only set when daylio_event frontmatter is present
 	filePath: string;   // path inside vault so we can navigate to it
 }
 
