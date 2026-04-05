@@ -7,6 +7,7 @@
     "bad": "#5579a7",
     "awful": "#6a777c"
   },
-  "barWidth": 0.5,
-  "eventScanDir": "entries"
+  "barWidth": 0.75,
+  "eventScanDir": "entries",
+  "showEventLabels": true
 }

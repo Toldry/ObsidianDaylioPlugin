@@ -1,5 +1,5 @@
 ---
-daylio_event: "Got promoted"
+daylio_event: Got promoted!
 ---
 
 The meeting lasted eleven minutes, most of which was HR explaining the updated pension contribution. The raise is real though.

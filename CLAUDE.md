@@ -29,9 +29,6 @@ npm run test:watch
 # Run tests with coverage report
 npm run test:coverage
 
-# Dev preview — renders the graph in a browser using the real test-vault CSV.
-# No Obsidian required. Open http://localhost:5173/preview/ after running.
-npm run preview
 ```
 
 `npm run dev` runs esbuild in watch mode. It does NOT auto-reload Obsidian;
