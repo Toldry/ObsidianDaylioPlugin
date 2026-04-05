@@ -32,6 +32,7 @@ over an event's range highlights the full period that event spans.
 
 1. Download `main.js`, `main.js.map`, `manifest.json`, and `styles.css`
    from the latest [GitHub release](../../releases/latest).
+   (`main.js` and `main.js.map` are the release assets built from `build/`.)
 2. Copy them into your vault at:
    `.obsidian/plugins/daylio-mood-graph/`
 3. In Obsidian: Settings → Community Plugins → enable **Daylio Mood Graph**.

@@ -36,8 +36,8 @@ npm run test:coverage
 `npm run dev` runs esbuild in watch mode. It does NOT auto-reload Obsidian;
 after a change, press Ctrl+R (or Cmd+R) inside Obsidian to reload the app.
 
-The compiled output is `main.js` in the project root. Obsidian loads this
-file, not the TypeScript sources directly.
+The compiled output is `build/main.js`. Obsidian loads this file (copied
+into the vault's plugin folder), not the TypeScript sources directly.
 
 ### Source maps and debugging
 
@@ -48,7 +48,7 @@ file, not the TypeScript sources directly.
   `plugin:daylio-mood-graph` → `src/`.
 - **Prod** (`npm run build`): `sourcemap: "linked"` — writes `build/main.js.map`
   as a separate file and adds a `//# sourceMappingURL=main.js.map` comment.
-  Ship `main.js.map` alongside `main.js` as a release asset.
+  Ship `build/main.js.map` alongside `build/main.js` as a release asset.
 
 ## Project structure
 
@@ -325,8 +325,8 @@ The graph builder (`src/graph-builder.ts`) is optimised for fast zoom redraws:
 
 ## Releasing
 
-The files Obsidian needs are `main.js`, `main.js.map`, `manifest.json`, and
-`styles.css`. When publishing a new version:
+The files Obsidian needs are `build/main.js`, `build/main.js.map`,
+`manifest.json`, and `styles.css`. When publishing a new version:
 
 1. Bump `version` in `manifest.json` (and `package.json`).
 2. Run `npm run build`.
