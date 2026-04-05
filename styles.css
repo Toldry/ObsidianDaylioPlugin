@@ -1,11 +1,18 @@
 /* ─── Daylio Mood Graph Plugin ─────────────────────────────── */
 
+/* Remove the entire view header bar (title + nav arrows + action menu)
+   for this view — the tab label already identifies it. */
+.workspace-leaf-content[data-type="daylio-mood-graph-view"] .view-header {
+	display: none;
+}
+
 .daylio-graph-root {
 	padding: 12px;
 	display: flex;
 	flex-direction: column;
 	gap: 10px;
 	height: 100%;
+	position: relative;  /* anchor for the absolutely-positioned legend */
 }
 
 .daylio-graph-notice {
@@ -72,11 +79,23 @@
 
 /* ── Legend ─────────────────────────────────────────────────── */
 
+/* Floats in the bottom-right corner of the graph root, overlaid
+   on the scroll area.  Background keeps it legible over the bars. */
 .daylio-graph-legend {
+	position: absolute;
+	bottom: 20px;
+	right: 20px;
 	display: flex;
-	gap: 12px;
+	gap: 8px;
 	flex-wrap: wrap;
 	align-items: center;
+	justify-content: flex-end;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	padding: 4px 8px;
+	z-index: 1;
+	pointer-events: none;   /* don't intercept graph interaction */
 }
 
 .daylio-legend-item {

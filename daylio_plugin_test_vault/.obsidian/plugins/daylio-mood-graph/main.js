@@ -64,8 +64,15 @@ var DEFAULT_SETTINGS = {
   csvPath: "",
   moodColors: { ...DEFAULT_MOOD_COLORS },
   barWidth: 8,
-  eventScanDir: ""
+  eventScanDir: "",
+  showEventLabels: true
 };
+var BAR_WIDTH_MIN = 0.25;
+var BAR_WIDTH_MAX = 8;
+var BAR_WIDTH_STEP = 0.25;
+var BAR_WIDTH_FINE_THRESHOLD = 2;
+var BAR_WIDTH_FINE_STEP = 0.5;
+var BAR_WIDTH_COARSE_STEP = 1;
 var VIEW_TYPE_DAYLIO = "daylio-mood-graph-view";
 function barGapFor(barWidth) {
   return barWidth >= 2 ? 2 : barWidth >= 1 ? 1 : 0;
@@ -208,7 +215,7 @@ var LANE_COUNT = MOOD_LEVELS.length;
 var LANE_HEIGHT = GRAPH_HEIGHT / LANE_COUNT;
 var MOOD_BAR_HEIGHT = Math.round(LANE_HEIGHT * 0.6);
 var MOOD_BAR_OFFSET = Math.round((LANE_HEIGHT - MOOD_BAR_HEIGHT) / 2);
-var DATE_HEADER_HEIGHT = 44;
+var DATE_HEADER_HEIGHT = 14;
 var MIN_MONTH_LABEL_PX = 55;
 var LABEL_FONT_SIZE = 10;
 var LABEL_LINE_HEIGHT_PX = 12;
@@ -267,7 +274,7 @@ function computeEntrySpans(days, vaultEvents) {
   return spans;
 }
 function buildGraphSvg(barWidth, days, vaultEvents, ctx) {
-  var _a2, _b2, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o;
+  var _a2, _b2, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q;
   log_default(
     "buildGraphSvg: barWidth =",
     barWidth,
@@ -287,7 +294,11 @@ function buildGraphSvg(barWidth, days, vaultEvents, ctx) {
     eventsByDate.set(ev.date, ev);
   }
   const labelMetrics = /* @__PURE__ */ new Map();
-  {
+  const eventLabelRows = /* @__PURE__ */ new Map();
+  const rowMaxHeight = [];
+  const rowTopY = [];
+  const labelAreaTop = graphBottom + 8;
+  if (ctx.showEventLabels) {
     const measureCanvas = document.createElement("canvas");
     const measureCtx = measureCanvas.getContext("2d");
     if (measureCtx) {
@@ -302,10 +313,6 @@ function buildGraphSvg(barWidth, days, vaultEvents, ctx) {
       const height = lines.length * LABEL_LINE_HEIGHT_PX + LABEL_INNER_V_PAD;
       labelMetrics.set(ev.date, { lines, width, height });
     }
-  }
-  const eventLabelRows = /* @__PURE__ */ new Map();
-  const rowMaxHeight = [];
-  {
     const rowRightEdge = [];
     for (let i = 0; i < days.length; i++) {
       const day = days[i];
@@ -329,22 +336,17 @@ function buildGraphSvg(barWidth, days, vaultEvents, ctx) {
       );
       eventLabelRows.set(day.date, row);
     }
-  }
-  const numLabelRows = Math.max(
-    1,
-    eventLabelRows.size > 0 ? Math.max(...eventLabelRows.values()) + 1 : 0
-  );
-  const labelAreaTop = graphBottom + 8;
-  const rowTopY = [];
-  {
     let y = labelAreaTop;
+    const numLabelRows = Math.max(
+      1,
+      eventLabelRows.size > 0 ? Math.max(...eventLabelRows.values()) + 1 : 0
+    );
     for (let row = 0; row < numLabelRows; row++) {
       rowTopY[row] = y;
       y += ((_e = rowMaxHeight[row]) != null ? _e : LABEL_LINE_HEIGHT_PX + LABEL_INNER_V_PAD) + LABEL_ROW_GAP;
     }
   }
-  const lastRowBottom = ((_f = rowTopY[numLabelRows - 1]) != null ? _f : labelAreaTop) + ((_g = rowMaxHeight[numLabelRows - 1]) != null ? _g : LABEL_LINE_HEIGHT_PX + LABEL_INNER_V_PAD);
-  const totalHeight = lastRowBottom + 4;
+  const totalHeight = ctx.showEventLabels && rowTopY.length > 0 ? ((_f = rowTopY[rowTopY.length - 1]) != null ? _f : labelAreaTop) + ((_g = rowMaxHeight[rowTopY.length - 1]) != null ? _g : LABEL_LINE_HEIGHT_PX + LABEL_INNER_V_PAD) + 4 : graphBottom + 4;
   const graphWidth = days.length * stride - BAR_GAP + 40;
   const svg = svgEl("svg", {
     width: String(graphWidth),
@@ -364,7 +366,9 @@ function buildGraphSvg(barWidth, days, vaultEvents, ctx) {
     }));
   }
   {
-    let sepPath = "";
+    const yearOnlyLabels = BAR_WIDTH <= 0.5;
+    let monthPath = "";
+    let yearPath = "";
     let currentMonth = "";
     let lastLabelX = -Infinity;
     for (let i = 0; i < days.length; i++) {
@@ -374,8 +378,26 @@ function buildGraphSvg(barWidth, days, vaultEvents, ctx) {
       if (monthStr === currentMonth) continue;
       currentMonth = monthStr;
       const x = LEFT_PAD + i * stride;
-      sepPath += `M${x - 2} 0V${graphBottom}`;
-      if (x - lastLabelX >= MIN_MONTH_LABEL_PX) {
+      const isYearStart = monthStr.endsWith("-01");
+      if (isYearStart) {
+        yearPath += `M${x - 2} 0V${graphBottom}`;
+      } else {
+        monthPath += `M${x - 2} 0V${graphBottom}`;
+      }
+      if (yearOnlyLabels) {
+        if (!isYearStart) continue;
+        if (x - lastLabelX < MIN_MONTH_LABEL_PX) continue;
+        lastLabelX = x;
+        const year = monthStr.slice(0, 4);
+        const label = svgEl("text", {
+          x: String(x + 2),
+          y: "12",
+          class: "daylio-month-label"
+        });
+        label.textContent = year;
+        svg.appendChild(label);
+      } else {
+        if (x - lastLabelX < MIN_MONTH_LABEL_PX) continue;
         lastLabelX = x;
         const monthDate = /* @__PURE__ */ new Date(day.date + "T00:00:00");
         const monthName = monthDate.toLocaleString("default", {
@@ -390,10 +412,18 @@ function buildGraphSvg(barWidth, days, vaultEvents, ctx) {
         svg.appendChild(label);
       }
     }
-    svg.appendChild(svgEl("path", {
-      d: sepPath,
-      class: "daylio-month-line"
-    }));
+    if (monthPath) {
+      svg.appendChild(svgEl("path", {
+        d: monthPath,
+        class: "daylio-month-line"
+      }));
+    }
+    if (yearPath) {
+      svg.appendChild(svgEl("path", {
+        d: yearPath,
+        class: "daylio-year-line"
+      }));
+    }
   }
   const moodPaths = {
     rad: "",
@@ -438,53 +468,64 @@ function buildGraphSvg(barWidth, days, vaultEvents, ctx) {
       svg.appendChild(tick);
     }
   }
-  for (let i = 0; i < days.length; i++) {
-    const day = days[i];
-    if (!day) continue;
-    const event = eventsByDate.get(day.date);
-    if (!(event == null ? void 0 : event.label)) continue;
-    const eventLabel = event.label;
-    const metrics = labelMetrics.get(day.date);
-    const labelWidth = (_h = metrics == null ? void 0 : metrics.width) != null ? _h : LABEL_INNER_H_PAD + 60;
-    const labelHeight = (_i = metrics == null ? void 0 : metrics.height) != null ? _i : LABEL_LINE_HEIGHT_PX + LABEL_INNER_V_PAD;
-    const lines = (_j = metrics == null ? void 0 : metrics.lines) != null ? _j : [eventLabel];
-    const cx = LEFT_PAD + i * stride + BAR_WIDTH / 2;
-    const evRow = (_k = eventLabelRows.get(day.date)) != null ? _k : 0;
-    const labelY = (_l = rowTopY[evRow]) != null ? _l : labelAreaTop;
-    svg.appendChild(svgEl("line", {
-      x1: String(cx),
-      y1: "0",
-      x2: String(cx),
-      y2: String(labelY),
-      class: "daylio-event-connector"
-    }));
-    const fo = svgEl("foreignObject", {
-      x: String(cx - labelWidth / 2),
-      y: String(labelY),
-      width: String(labelWidth),
-      height: String(labelHeight)
-    });
-    const labelDiv = document.createElement("div");
-    labelDiv.className = "daylio-event-label";
-    labelDiv.title = `${lines.join("\n")}
+  if (ctx.showEventLabels) {
+    for (let i = 0; i < days.length; i++) {
+      const day = days[i];
+      if (!day) continue;
+      const event = eventsByDate.get(day.date);
+      if (!(event == null ? void 0 : event.label)) continue;
+      const cx = LEFT_PAD + i * stride + BAR_WIDTH / 2;
+      const evRow = (_h = eventLabelRows.get(day.date)) != null ? _h : 0;
+      const labelY = (_i = rowTopY[evRow]) != null ? _i : labelAreaTop;
+      svg.appendChild(svgEl("line", {
+        x1: String(cx),
+        y1: "0",
+        x2: String(cx),
+        y2: String(labelY),
+        class: "daylio-event-connector"
+      }));
+    }
+    for (let i = 0; i < days.length; i++) {
+      const day = days[i];
+      if (!day) continue;
+      const event = eventsByDate.get(day.date);
+      if (!(event == null ? void 0 : event.label)) continue;
+      const eventLabel = event.label;
+      const metrics = labelMetrics.get(day.date);
+      const labelWidth = (_j = metrics == null ? void 0 : metrics.width) != null ? _j : LABEL_INNER_H_PAD + 60;
+      const labelHeight = (_k = metrics == null ? void 0 : metrics.height) != null ? _k : LABEL_LINE_HEIGHT_PX + LABEL_INNER_V_PAD;
+      const lines = (_l = metrics == null ? void 0 : metrics.lines) != null ? _l : [eventLabel];
+      const cx = LEFT_PAD + i * stride + BAR_WIDTH / 2;
+      const evRow = (_m = eventLabelRows.get(day.date)) != null ? _m : 0;
+      const labelY = (_n = rowTopY[evRow]) != null ? _n : labelAreaTop;
+      const fo = svgEl("foreignObject", {
+        x: String(cx - labelWidth / 2),
+        y: String(labelY),
+        width: String(labelWidth),
+        height: String(labelHeight)
+      });
+      const labelDiv = document.createElement("div");
+      labelDiv.className = "daylio-event-label";
+      labelDiv.title = `${lines.join("\n")}
 ${event.date}
 Click to open note`;
-    for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
-      if (lineIdx > 0) {
-        labelDiv.appendChild(document.createElement("br"));
+      for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+        if (lineIdx > 0) {
+          labelDiv.appendChild(document.createElement("br"));
+        }
+        labelDiv.appendChild(
+          document.createTextNode((_o = lines[lineIdx]) != null ? _o : "")
+        );
       }
-      labelDiv.appendChild(
-        document.createTextNode((_m = lines[lineIdx]) != null ? _m : "")
-      );
+      const filePath = event.filePath;
+      labelDiv.addEventListener("click", (evt) => {
+        evt.preventDefault();
+        evt.stopPropagation();
+        ctx.openFile(filePath);
+      });
+      fo.appendChild(labelDiv);
+      svg.appendChild(fo);
     }
-    const filePath = event.filePath;
-    labelDiv.addEventListener("click", (evt) => {
-      evt.preventDefault();
-      evt.stopPropagation();
-      ctx.openFile(filePath);
-    });
-    fo.appendChild(labelDiv);
-    svg.appendChild(fo);
   }
   const hoverDateLabel = svgEl("text", {
     class: "daylio-hover-date-label",
@@ -525,7 +566,7 @@ Click to open note`;
         class: "daylio-day-overlay"
       });
       dayOverlay.addEventListener("click", clickHandler);
-      const dayDate = (_o = (_n = days[i]) == null ? void 0 : _n.date) != null ? _o : "";
+      const dayDate = (_q = (_p = days[i]) == null ? void 0 : _p.date) != null ? _q : "";
       const entryName = filePath.split("/").pop().replace(/\.md$/i, "").replace(/^\d{4}-\d{2}-\d{2}[\s-]*/, "");
       const labelX = String(dx + BAR_WIDTH / 2);
       dayOverlay.addEventListener("mouseenter", () => {
@@ -553,7 +594,7 @@ Click to open note`;
     "\xD7",
     totalHeight,
     "px,",
-    numLabelRows,
+    rowTopY.length,
     "event label row(s),",
     (performance.now() - buildStart).toFixed(2),
     "ms"
@@ -655,8 +696,8 @@ var DaylioGraphView = class extends import_obsidian2.ItemView {
     toolbar.createSpan({ text: "Zoom", cls: "daylio-zoom-label" });
     const stepZoom = (delta) => {
       const newWidth = Math.max(
-        0.5,
-        Math.min(16, this.plugin.settings.barWidth + delta)
+        BAR_WIDTH_MIN,
+        Math.min(BAR_WIDTH_MAX, this.plugin.settings.barWidth + delta)
       );
       if (newWidth === this.plugin.settings.barWidth) return;
       slider.value = String(newWidth);
@@ -677,12 +718,12 @@ var DaylioGraphView = class extends import_obsidian2.ItemView {
       cls: "daylio-zoom-btn"
     });
     minusBtn.setAttribute("aria-label", "Zoom out");
-    minusBtn.addEventListener("click", () => stepZoom(-0.5));
+    minusBtn.addEventListener("click", () => stepZoom(-BAR_WIDTH_STEP));
     const slider = toolbar.createEl("input");
     slider.type = "range";
-    slider.min = "0.5";
-    slider.max = "16";
-    slider.step = "0.5";
+    slider.min = String(BAR_WIDTH_MIN);
+    slider.max = String(BAR_WIDTH_MAX);
+    slider.step = String(BAR_WIDTH_STEP);
     slider.value = String(this.plugin.settings.barWidth);
     slider.addClass("daylio-zoom-slider");
     this.zoomSlider = slider;
@@ -706,7 +747,27 @@ var DaylioGraphView = class extends import_obsidian2.ItemView {
       cls: "daylio-zoom-btn"
     });
     plusBtn.setAttribute("aria-label", "Zoom in");
-    plusBtn.addEventListener("click", () => stepZoom(0.5));
+    plusBtn.addEventListener("click", () => stepZoom(BAR_WIDTH_STEP));
+    const labelsLabel = toolbar.createEl("label", {
+      cls: "daylio-labels-toggle"
+    });
+    const labelsCheck = labelsLabel.createEl("input");
+    labelsCheck.type = "checkbox";
+    labelsCheck.checked = this.plugin.settings.showEventLabels;
+    labelsLabel.createSpan({ text: "Labels" });
+    labelsCheck.addEventListener("change", async () => {
+      this.plugin.settings.showEventLabels = labelsCheck.checked;
+      this.quickRedraw(this.plugin.settings.barWidth);
+      await this.plugin.saveSettings();
+    });
+    const refreshBtn = toolbar.createEl("button", {
+      text: "\u21BA",
+      cls: "daylio-zoom-btn"
+    });
+    refreshBtn.setAttribute("aria-label", "Refresh graph");
+    refreshBtn.addEventListener("click", () => {
+      void this.renderGraph();
+    });
     this.cachedVaultEvents = scanVaultEvents(
       this.app,
       this.plugin.settings.eventScanDir || void 0
@@ -730,17 +791,27 @@ var DaylioGraphView = class extends import_obsidian2.ItemView {
       cls: "daylio-graph-scroll"
     });
     this.setupDragPan(this.scrollContainer);
+    let rightButtonHeld = false;
+    this.scrollContainer.addEventListener("mousedown", (evt) => {
+      if (evt.button === 2) rightButtonHeld = true;
+    });
+    document.addEventListener("mouseup", (evt) => {
+      if (evt.button === 2) rightButtonHeld = false;
+    });
+    this.scrollContainer.addEventListener("contextmenu", (evt) => {
+      if (rightButtonHeld) evt.preventDefault();
+    });
     this.scrollContainer.addEventListener(
       "wheel",
       (evt) => {
         evt.preventDefault();
-        if (evt.ctrlKey) {
-          const step = this.plugin.settings.barWidth <= 2 ? 0.5 : 1;
+        if (evt.ctrlKey || rightButtonHeld) {
+          const step = this.plugin.settings.barWidth <= BAR_WIDTH_FINE_THRESHOLD ? BAR_WIDTH_FINE_STEP : BAR_WIDTH_COARSE_STEP;
           const delta = evt.deltaY < 0 ? step : -step;
           const newWidth = Math.max(
-            0.5,
+            BAR_WIDTH_MIN,
             Math.min(
-              16,
+              BAR_WIDTH_MAX,
               this.plugin.settings.barWidth + delta
             )
           );
@@ -829,7 +900,8 @@ var DaylioGraphView = class extends import_obsidian2.ItemView {
   buildSvg(barWidth) {
     return buildGraphSvg(barWidth, this.cachedDays, this.cachedVaultEvents, {
       moodColors: this.plugin.settings.moodColors,
-      openFile: (fp) => this.openFile(fp)
+      openFile: (fp) => this.openFile(fp),
+      showEventLabels: this.plugin.settings.showEventLabels
     });
   }
   /**
@@ -838,6 +910,12 @@ var DaylioGraphView = class extends import_obsidian2.ItemView {
    */
   quickRedraw(newWidth, anchor) {
     if (!this.scrollContainer || this.cachedDays.length === 0) return;
+    if (!anchor) {
+      const maxScroll = this.scrollContainer.scrollWidth - this.scrollContainer.clientWidth;
+      if (maxScroll > 0) {
+        this.scrollRatio = this.scrollContainer.scrollLeft / maxScroll;
+      }
+    }
     log_default(
       "quickRedraw:",
       this.plugin.settings.barWidth,
@@ -921,6 +999,15 @@ var DaylioSettingTab = class extends import_obsidian3.PluginSettingTab {
         scanDirSetting.setDesc(scanDirDesc(value));
       })
     );
+    new import_obsidian3.Setting(containerEl).setName("Show event labels").setDesc(
+      "Display the floating label cards for notes that have a daylio_event frontmatter field. The column highlights and hover markers are always shown."
+    ).addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.showEventLabels).onChange(async (value) => {
+        log_default("showEventLabels changed to:", value);
+        this.plugin.settings.showEventLabels = value;
+        await this.plugin.saveSettings();
+      })
+    );
     containerEl.createEl("h3", { text: "Mood Colours" });
     for (const mood of MOOD_LEVELS) {
       new import_obsidian3.Setting(containerEl).setName(mood.charAt(0).toUpperCase() + mood.slice(1)).addColorPicker(
@@ -997,10 +1084,10 @@ var DaylioGraphPlugin = class extends import_obsidian4.Plugin {
     const { workspace } = this.app;
     let leaf = workspace.getLeavesOfType(VIEW_TYPE_DAYLIO)[0];
     if (!leaf) {
-      log_default("no existing view leaf; opening in new right leaf");
-      const newLeaf = workspace.getRightLeaf(false);
+      log_default("no existing view leaf; opening in horizontal split");
+      const newLeaf = workspace.getLeaf("split", "horizontal");
       if (!newLeaf) {
-        log_default("could not obtain a right leaf; aborting");
+        log_default("could not obtain a leaf; aborting");
         return;
       }
       await newLeaf.setViewState({

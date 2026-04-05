@@ -1,11 +1,18 @@
 /* ─── Daylio Mood Graph Plugin ─────────────────────────────── */
 
+/* Remove the entire view header bar (title + nav arrows + action menu)
+   for this view — the tab label already identifies it. */
+.workspace-leaf-content[data-type="daylio-mood-graph-view"] .view-header {
+	display: none;
+}
+
 .daylio-graph-root {
 	padding: 12px;
 	display: flex;
 	flex-direction: column;
 	gap: 10px;
 	height: 100%;
+	position: relative;  /* anchor for the absolutely-positioned legend */
 }
 
 .daylio-graph-notice {
@@ -54,13 +61,41 @@
 	cursor: pointer;
 }
 
+.daylio-labels-toggle {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 12px;
+	color: var(--text-muted);
+	cursor: pointer;
+	user-select: none;
+	margin-left: 4px;
+}
+
+.daylio-labels-toggle input[type="checkbox"] {
+	accent-color: var(--interactive-accent);
+	cursor: pointer;
+}
+
 /* ── Legend ─────────────────────────────────────────────────── */
 
+/* Floats in the bottom-right corner of the graph root, overlaid
+   on the scroll area.  Background keeps it legible over the bars. */
 .daylio-graph-legend {
+	position: absolute;
+	bottom: 20px;
+	right: 20px;
 	display: flex;
-	gap: 12px;
+	gap: 8px;
 	flex-wrap: wrap;
 	align-items: center;
+	justify-content: flex-end;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	padding: 4px 8px;
+	z-index: 1;
+	pointer-events: none;   /* don't intercept graph interaction */
 }
 
 .daylio-legend-item {
@@ -117,6 +152,15 @@
 	fill: none;
 }
 
+/* Year-start separator — same dash pattern but more opaque and slightly
+   thicker so it stands out from the month grid lines. */
+.daylio-year-line {
+	stroke: var(--text-faint);
+	stroke-width: 1.5;
+	stroke-dasharray: 4 2;
+	fill: none;
+}
+
 .daylio-month-label {
 	font-size: 11px;
 	fill: var(--text-muted);
@@ -148,7 +192,7 @@
 }
 
 .daylio-hover-name-label {
-	font-size: 8px;
+	font-size: 11px;
 	font-family: var(--font-interface);
 	fill: var(--text-muted);
 	text-anchor: middle;

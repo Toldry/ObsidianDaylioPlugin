@@ -322,6 +322,7 @@ export class DaylioGraphView extends ItemView {
 					maxScroll * this.scrollRatio;
 			}
 		});
+
 	}
 
 	/**
@@ -409,6 +410,18 @@ export class DaylioGraphView extends ItemView {
 		},
 	): void {
 		if (!this.scrollContainer || this.cachedDays.length === 0) return;
+		// Refresh scrollRatio from the live position before replacing the SVG,
+		// so ratio-based redraws (e.g. toggling Labels) land back exactly where
+		// the user currently is rather than where the last renderGraph() left off.
+		if (!anchor) {
+			const maxScroll =
+				this.scrollContainer.scrollWidth -
+				this.scrollContainer.clientWidth;
+			if (maxScroll > 0) {
+				this.scrollRatio =
+					this.scrollContainer.scrollLeft / maxScroll;
+			}
+		}
 		log(
 			"quickRedraw:", this.plugin.settings.barWidth, "→", newWidth,
 			anchor ? "(cursor-anchored)" : "(ratio-based scroll)",

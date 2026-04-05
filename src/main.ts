@@ -105,10 +105,10 @@ export default class DaylioGraphPlugin extends Plugin {
 
 		let leaf = workspace.getLeavesOfType(VIEW_TYPE_DAYLIO)[0];
 		if (!leaf) {
-			log("no existing view leaf; opening in new right leaf");
-			const newLeaf = workspace.getRightLeaf(false);
+			log("no existing view leaf; opening in horizontal split");
+			const newLeaf = workspace.getLeaf("split", "horizontal");
 			if (!newLeaf) {
-				log("could not obtain a right leaf; aborting");
+				log("could not obtain a leaf; aborting");
 				return;
 			}
 			await newLeaf.setViewState({
