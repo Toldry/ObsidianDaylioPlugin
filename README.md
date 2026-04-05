@@ -9,18 +9,11 @@ labelled, clickable markers at the dates they correspond to.
 Each day in your Daylio export becomes a vertical bar. The bar is split into
 segments — one per mood entry that day — each coloured by mood level. Days
 with no entry are simply absent. Month boundaries are marked with dashed
-lines and labels. The graph scrolls horizontally and defaults to showing the
-most recent data.
+lines and labels; year boundaries use a slightly bolder line so they stand
+out. At maximum zoom-out only year labels are shown to avoid crowding.
+The graph scrolls horizontally and defaults to showing the most recent data.
 
-```
-rad   ████
-good  ████ ████ ████
-meh   ████ ████ ████ ████
-bad        ████
-awful
-      ─────────────────────→ time
-      Jun       Jul       Aug
-```
+![](plugin_screenshot.png)
 
 Vault events appear as small labelled cards below the graph, connected to
 their date by a dashed connector line. Clicking a card opens the
@@ -37,8 +30,8 @@ over an event's range highlights the full period that event spans.
 
 ### Manual installation
 
-1. Download `main.js`, `manifest.json`, and `styles.css` from the latest
-   [GitHub release](../../releases/latest).
+1. Download `main.js`, `main.js.map`, `manifest.json`, and `styles.css`
+   from the latest [GitHub release](../../releases/latest).
 2. Copy them into your vault at:
    `.obsidian/plugins/daylio-mood-graph/`
 3. In Obsidian: Settings → Community Plugins → enable **Daylio Mood Graph**.
@@ -47,8 +40,9 @@ over an event's range highlights the full period that event spans.
 
 ### 1. Export your data from Daylio
 
-In the Daylio app: **More → Export Entries → CSV (table)**. 
-Move the resulting file into your vault — `attachments/daylio_export.csv` is a reasonable location.
+In the Daylio app: **More → Export Entries → CSV (table)**.
+Move the resulting file into your vault — `attachments/daylio_export.csv`
+is a reasonable location.
 
 ### 2. Tell the plugin where the CSV is
 
@@ -64,6 +58,25 @@ attachments/daylio_export.csv
 Click the smiley-face icon in the left ribbon, or run the command
 **Daylio Mood Graph: Open Daylio Mood Graph** from the command palette
 (Ctrl+P / Cmd+P).
+
+The graph opens as a horizontal split pane below the current editor.
+
+## Navigating the graph
+
+**Scrolling:** drag left/right anywhere in the graph area, or use a
+horizontal scroll gesture on a trackpad.
+
+**Zooming:**
+
+| Gesture | Effect |
+|---|---|
+| Toolbar slider | Smooth zoom, persists between sessions |
+| Toolbar − / + buttons | Step zoom |
+| Ctrl + scroll wheel | Zoom centred on the cursor |
+| Right-click + scroll wheel | Same as Ctrl + scroll |
+
+At narrow bar widths (≤ 0.5 px per day) only year labels are shown to keep
+the header readable.
 
 ## Annotating the graph with vault events
 
@@ -92,27 +105,31 @@ needs to open your notes — so scanning is fast regardless of vault size.
 - Frontmatter is stripped during PDF export, so `daylio_event` never appears
   in printed or exported versions of your notes.
 
+Event labels can be toggled on and off with the **Labels** checkbox in the
+graph toolbar without losing your scroll position.
+
 ## Settings
 
 | Setting | Description | Default |
 |---|---|---|
-| CSV file path | Dropdown listing all CSV files in your vault | *(empty)* |
+| CSV file path | Path to your Daylio CSV export, relative to the vault root | *(empty)* |
+| Event scan directory | Restrict vault-event scanning to this subdirectory (leave blank to scan the whole vault) | *(empty)* |
+| Show event labels | Whether event label cards are shown below the graph | On |
 | Mood colours | A colour picker for each of the five mood levels | Daylio palette |
 | Reset colours | Restores the default Daylio colour palette | — |
 
-The zoom level is controlled by a slider on the graph toolbar and persists
-between sessions. Drag it left for an overview of years, right to zoom into
-individual days.
+The zoom level is controlled by the toolbar slider and persists between
+sessions.
 
 ## Mood levels and default colours
 
 | Level | Default colour |
 |---|---|
-| Rad | `#f78c1e` (orange) |
-| Good | `#41a766` (green) |
-| Meh | `#9056a3` (purple) |
-| Bad | `#5579a7` (blue) |
-| Awful | `#6a777c` (grey) |
+| <span style="color:#f78c1e">Rad</span> | `#f78c1e` (orange) |
+| <span style="color:#41a766">Good</span> | `#41a766` (green) |
+| <span style="color:#9056a3">Meh</span> | `#9056a3` (purple) |
+| <span style="color:#5579a7">Bad</span> | `#5579a7` (blue) |
+| <span style="color:#6a777c">Awful</span> | `#6a777c` (grey) |
 
 All colours are customisable in settings and respect your Obsidian theme for
 surrounding UI elements.
@@ -128,12 +145,14 @@ surrounding UI elements.
 
 ```bash
 npm install          # first time only
-npm run dev          # watch mode with source maps
+npm run dev          # watch mode with inline source maps
 npm run build        # production bundle (type-checks first)
 ```
 
-After building, copy `main.js`, `manifest.json`, and `styles.css` into your
-vault's plugin folder and reload Obsidian (Ctrl+R / Cmd+R).
+After building, copy `main.js`, `main.js.map`, `manifest.json`, and
+`styles.css` into your vault's plugin folder and reload Obsidian
+(Ctrl+R / Cmd+R). The shorthand `npm run build:vault` builds and copies
+in one step.
 
 ### Running the tests
 
@@ -169,11 +188,4 @@ counts, dates, and mood distributions).
 
 The SVG rendering inside `buildGraphSvg` is not covered by automated tests
 as it depends on a live browser DOM; test it manually by opening the test
-vault in Obsidian.
-
-See [CLAUDE.md](./CLAUDE.md) for full architecture and testability
-conventions.
-
-## Licence
-
-MIT — open-source software. Use it, fork it, and contribute back freely.
+vault in Obsi

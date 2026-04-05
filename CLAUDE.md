@@ -20,6 +20,9 @@ npm run dev
 # Production — type-checks first, then builds minified bundle with source maps
 npm run build
 
+# Build and copy directly into the test vault in one step
+npm run build:vault
+
 # Run the test suite once
 npm test
 
@@ -28,7 +31,6 @@ npm run test:watch
 
 # Run tests with coverage report
 npm run test:coverage
-
 ```
 
 `npm run dev` runs esbuild in watch mode. It does NOT auto-reload Obsidian;
@@ -57,9 +59,10 @@ daylio-obsidian-plugin/
 │   ├── types.ts             ← Types, interfaces, constants, defaults, icon
 │   ├── csv-parser.ts        ← parseDaylioCsv, parseCsvLine, isMoodLevel, groupByDay
 │   ├── vault-scanner.ts     ← scanVaultEvents, DATE_PREFIX_REGEX
-│   ├── graph-builder.ts     ← buildGraphSvg (pure synchronous SVG builder)
+│   ├── graph-builder.ts     ← buildGraphSvg, computeEntrySpans (pure SVG builder)
 │   ├── graph-view.ts        ← DaylioGraphView (Obsidian ItemView subclass)
-│   └── settings-tab.ts      ← DaylioSettingTab (Obsidian PluginSettingTab)
+│   ├── settings-tab.ts      ← DaylioSettingTab (Obsidian PluginSettingTab)
+│   └── log.ts               ← Thin debug-logging wrapper (no-ops in production)
 ├── tests/
 │   ├── __mocks__/
 │   │   └── obsidian.ts      ← Minimal Obsidian API stub for unit tests
@@ -76,7 +79,7 @@ daylio-obsidian-plugin/
 │   │       └── daylio-mood-graph/   ← Compiled plugin installed here
 │   ├── attachments/
 │   │   └── daylio_export.csv    ← Daylio CSV used by the test vault
-│   └── *.md                     ← Test notes (event notes, edge cases)
+│   └── entries/                 ← Test notes (event notes, edge cases)
 ├── manifest.json                ← Plugin metadata (id, name, minAppVersion)
 ├── package.json
 ├── tsconfig.json
@@ -92,23 +95,35 @@ daylio-obsidian-plugin/
 The source is split into focused modules under `src/`:
 
 - **`types.ts`** — `MoodLevel`, `MoodEntry`, `DayData`, `VaultEvent`, settings
-  interfaces, default colours, `barGapFor()`, `MOOD_TO_LANE`, the custom
-  ribbon icon registration, and the `HasDaylioSettings` interface used to
-  break circular dependencies between the graph view and the plugin class.
+  interfaces, default colours, `barGapFor()`, `MOOD_TO_LANE`, zoom constants
+  (`BAR_WIDTH_MIN/MAX/STEP` etc.), the custom ribbon icon registration, and the
+  `HasDaylioSettings` interface used to break circular dependencies between the
+  graph view and the plugin class.
 - **`csv-parser.ts`** — `parseDaylioCsv`, `parseCsvLine`, `isMoodLevel`,
   `groupByDay`. Pure functions, no Obsidian imports.
 - **`vault-scanner.ts`** — `scanVaultEvents`, `DATE_PREFIX_REGEX`. Depends
-  only on Obsidian `App` and `TFile`.
-- **`graph-builder.ts`** — `buildGraphSvg()`. A pure synchronous function
-  that takes `DayData[]`, `VaultEvent[]`, and a context object (mood colours
-  + file-opener callback), returning an `SVGSVGElement`. This is the
-  performance-critical path — mood bars are rendered as one `<path>` per mood
-  level (5 path elements) instead of individual `<rect>` elements per bar.
-  Lane dividers and month separators are also merged into single paths.
+  only on Obsidian `App` and `TFile`. Accepts an optional `scanDir` argument
+  to restrict scanning to a vault subdirectory.
+- **`graph-builder.ts`** — `buildGraphSvg()` and `computeEntrySpans()`. Both
+  are pure synchronous functions exported for testing. `buildGraphSvg` takes
+  `DayData[]`, `VaultEvent[]`, and a `GraphBuildContext` (mood colours,
+  file-opener callback, `showEventLabels` flag), returning an `SVGSVGElement`.
+  `computeEntrySpans` collapses consecutive days that share the same active
+  vault entry into contiguous spans, which drive the range-background overlays.
+  This is the performance-critical path — mood bars are rendered as one
+  `<path>` per mood level (5 path elements) instead of individual `<rect>`
+  elements per bar. Lane dividers and month separators are also merged into
+  single paths.
 - **`graph-view.ts`** — `DaylioGraphView extends ItemView`. Orchestrates CSV
-  loading, caching, toolbar/legend UI, and zoom (slider, ±buttons,
-  Ctrl+wheel). Delegates SVG building to `buildGraphSvg()`.
+  loading, caching, toolbar/legend UI, zoom (slider, ±buttons, Ctrl+wheel,
+  right-click+scroll), and drag-to-pan. Delegates SVG building to
+  `buildGraphSvg()`. `quickRedraw()` replaces just the SVG (no CSV re-read)
+  and anchors the scroll position either to the cursor (zoom gestures) or to
+  the saved `scrollRatio` (label toggle, refresh). The ratio is refreshed from
+  the live scroll position at the start of every non-anchored `quickRedraw`
+  call to prevent stale-ratio scroll jumps.
 - **`settings-tab.ts`** — `DaylioSettingTab extends PluginSettingTab`.
+- **`log.ts`** — Debug logging helper; calls are compiled away in production.
 - **`main.ts`** — `DaylioGraphPlugin extends Plugin`. Slim entry point that
   wires up the view, ribbon icon, command, and settings tab. Also re-exports
   all pure functions and types so existing test imports (`from "../../src/main"`)
@@ -116,6 +131,8 @@ The source is split into focused modules under `src/`:
 
 The graph is pure SVG built via `document.createElementNS`. Event labels
 use `<foreignObject>` so they can contain a clickable, text-wrapping `<div>`.
+Connector lines and label cards are rendered in two passes (connectors first,
+then cards) to ensure labels always sit in front of crossing connector lines.
 
 ## Key Obsidian API touchpoints
 
@@ -127,11 +144,25 @@ use `<foreignObject>` so they can contain a clickable, text-wrapping `<div>`.
 | Opening a note | `app.workspace.getLeaf(false).openFile(file)` |
 | Registering the view | `this.registerView(VIEW_TYPE, creator)` |
 | Persisting settings | `this.loadData()` / `this.saveData(data)` |
+| Opening in a horizontal split | `workspace.getLeaf("split", "horizontal")` |
+
+**Note on `ItemView.navigation`:** Obsidian's `navigation` property on `View`
+does not suppress the back/forward arrow buttons in the view header; they are
+rendered unconditionally. Hide them (along with the rest of the header bar)
+via CSS targeting `[data-type="<VIEW_TYPE>"] .view-header`. The value must
+match `VIEW_TYPE_DAYLIO` exactly — it is the view type string, not the plugin
+manifest `id`. See `styles.css`.
 
 ## Installing the plugin into the test vault
 
-After building, copy the three distributable files into the test vault's
-plugin folder:
+After building, copy the distributable files into the test vault's plugin
+folder. The `build:vault` script does this automatically:
+
+```bash
+npm run build:vault
+```
+
+Or manually:
 
 ```bash
 # Unix/macOS
@@ -153,7 +184,9 @@ Settings are persisted by Obsidian to
 ```jsonc
 {
   "csvPath": "attachments/daylio_export.csv",  // relative to vault root
-  "barWidth": 8,                               // pixels per bar column (0.5–16); controls zoom
+  "barWidth": 8,           // pixels per bar column (0.25–8); controls zoom
+  "showEventLabels": true, // whether event label cards are rendered
+  "eventScanDir": "",      // restrict vault scanning to this subdirectory
   "moodColors": {
     "rad":   "#f78c1e",
     "good":  "#41a766",
@@ -163,6 +196,21 @@ Settings are persisted by Obsidian to
   }
 }
 ```
+
+## Zoom constants (`src/types.ts`)
+
+| Constant | Value | Meaning |
+|---|---|---|
+| `BAR_WIDTH_MIN` | 0.25 | Minimum bar width in px |
+| `BAR_WIDTH_MAX` | 8 | Maximum bar width in px |
+| `BAR_WIDTH_STEP` | 0.25 | Slider / ±button step size |
+| `BAR_WIDTH_FINE_THRESHOLD` | 2 | Below this, Ctrl+wheel uses the fine step |
+| `BAR_WIDTH_FINE_STEP` | 0.5 | Ctrl+wheel step at low zoom |
+| `BAR_WIDTH_COARSE_STEP` | 1 | Ctrl+wheel step at high zoom |
+
+At `barWidth ≤ 0.5` the graph enters "year-only" mode: only year-start labels
+are rendered and year separator lines use the `.daylio-year-line` CSS class
+(slightly bolder than the regular `.daylio-month-line`).
 
 ## Event marker convention
 
@@ -181,6 +229,11 @@ Rules the plugin enforces:
   last wins (non-deterministic). Avoid duplicates.
 - The date must correspond to a day that exists in the CSV; if not, the event
   is silently ignored (no bar to attach it to).
+
+`scanVaultEvents` returns **all** dated notes (not just those with
+`daylio_event`), so the entry-span overlays can cover the full timeline.
+The `label` field on `VaultEvent` is optional; only notes with `daylio_event`
+produce visible label cards.
 
 ## Testing
 
@@ -210,6 +263,7 @@ The plugin can't run a full Obsidian runtime in CI, so the test strategy is:
 | `groupByDay` ordering and grouping | Obsidian-specific UI (ribbon, command palette) |
 | `scanVaultEvents` with mocked App | Settings tab rendering |
 | Frontmatter extraction (quoted, unquoted, empty) | Plugin load/unload lifecycle |
+| `scanDir` filtering | |
 | Vault event detection against real test-vault files | |
 | Known anchor points in the real CSV (mood counts, dates) | |
 
@@ -236,6 +290,23 @@ collisions. Colours use Obsidian CSS variables (`--text-muted`,
 `--interactive-accent`, etc.) so the plugin respects the user's chosen theme
 automatically.
 
+View-scoped rules that override Obsidian's own chrome use the attribute
+selector `[data-type="daylio-mood-graph-view"]` — the value must match
+`VIEW_TYPE_DAYLIO` exactly (not the plugin's manifest `id`).
+
+Notable classes:
+
+| Class | Purpose |
+|---|---|
+| `.daylio-graph-root` | Flex-column root; `position: relative` anchors the legend overlay |
+| `.daylio-graph-scroll` | Horizontally scrollable SVG container; `flex: 1` fills remaining height |
+| `.daylio-graph-legend` | `position: absolute; bottom/right` overlay in the graph corner |
+| `.daylio-month-line` | Dashed vertical separator at each month boundary |
+| `.daylio-year-line` | Slightly bolder dashed separator at each year boundary |
+| `.daylio-entry-group` | `<g>` wrapping span background + per-day overlays for one vault entry |
+| `.daylio-range-bg` | Faint full-span background rect, revealed on group hover |
+| `.daylio-day-overlay` | Per-day transparent hit target; shown more prominently on direct hover |
+
 ## Graph rendering performance
 
 The graph builder (`src/graph-builder.ts`) is optimised for fast zoom redraws:
@@ -243,7 +314,10 @@ The graph builder (`src/graph-builder.ts`) is optimised for fast zoom redraws:
 - Mood bars are rendered as one `<path>` per mood level (5 total) instead of
   individual `<rect>` elements per bar (~2 900 rects → 5 paths).
 - Lane dividers are a single `<path>` with multiple `M…H…` subpaths.
-- Month separator lines are a single `<path>`.
+- Month separator lines use one `<path>`; year separator lines use a second
+  `<path>` with a distinct CSS class.
+- Event connector lines and label `<foreignObject>` elements are rendered in
+  two passes so labels always sit in front of crossing connectors.
 - A helper function `svgEl()` reduces boilerplate for element creation.
 - The graph view caches parsed CSV data (`cachedDays`) and vault events so
   zoom redraws skip the async file read and directly call `buildGraphSvg()`.

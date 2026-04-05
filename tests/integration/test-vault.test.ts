@@ -208,7 +208,7 @@ describe("Vault events integration (test vault notes)", () => {
 	});
 
 	it("detects the 'Lockdown begins' event on 2020-03-16", () => {
-		expect(eventsByDate.get("2020-03-16")?.label).toBe("Lockdown begins");
+		expect(eventsByDate.get("2020-03-16")?.label).toBe("Lockdown begins\\nOh boy");
 	});
 
 	it("detects the 'US election night' event on 2020-11-03", () => {
