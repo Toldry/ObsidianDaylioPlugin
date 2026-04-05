@@ -274,11 +274,17 @@ export function buildGraphSvg(
 		}));
 	}
 
-	// ── Month separators + labels ────────────────────────────────
+	// ── Month/year separators + labels ───────────────────────────
+	// At the two most zoomed-out levels (barWidth ≤ 0.5) only label
+	// year starts to avoid crowding.  Year-start separator lines use
+	// a distinct CSS class so they can be styled more prominently.
 	{
-		let sepPath = "";
+		const yearOnlyLabels = BAR_WIDTH <= 0.5;
+		let monthPath = "";  // non-year-start separators
+		let yearPath  = "";  // year-start separators (styled differently)
 		let currentMonth = "";
 		let lastLabelX = -Infinity;
+
 		for (let i = 0; i < days.length; i++) {
 			const day = days[i];
 			if (!day) continue;
@@ -286,9 +292,31 @@ export function buildGraphSvg(
 			if (monthStr === currentMonth) continue;
 			currentMonth = monthStr;
 			const x = LEFT_PAD + i * stride;
-			sepPath += `M${x - 2} 0V${graphBottom}`;
+			const isYearStart = monthStr.endsWith("-01");
 
-			if (x - lastLabelX >= MIN_MONTH_LABEL_PX) {
+			// Route the separator line into the appropriate path bucket.
+			if (isYearStart) {
+				yearPath += `M${x - 2} 0V${graphBottom}`;
+			} else {
+				monthPath += `M${x - 2} 0V${graphBottom}`;
+			}
+
+			// Label: at max zoom-out show only year starts; otherwise
+			// show every month (subject to the minimum spacing guard).
+			if (yearOnlyLabels) {
+				if (!isYearStart) continue;
+				if (x - lastLabelX < MIN_MONTH_LABEL_PX) continue;
+				lastLabelX = x;
+				const year = monthStr.slice(0, 4);
+				const label = svgEl("text", {
+					x: String(x + 2),
+					y: "12",
+					class: "daylio-month-label",
+				});
+				label.textContent = year;
+				svg.appendChild(label);
+			} else {
+				if (x - lastLabelX < MIN_MONTH_LABEL_PX) continue;
 				lastLabelX = x;
 				const monthDate = new Date(day.date + "T00:00:00");
 				const monthName = monthDate.toLocaleString("default", {
@@ -303,10 +331,19 @@ export function buildGraphSvg(
 				svg.appendChild(label);
 			}
 		}
-		svg.appendChild(svgEl("path", {
-			d: sepPath,
-			class: "daylio-month-line",
-		}));
+
+		if (monthPath) {
+			svg.appendChild(svgEl("path", {
+				d: monthPath,
+				class: "daylio-month-line",
+			}));
+		}
+		if (yearPath) {
+			svg.appendChild(svgEl("path", {
+				d: yearPath,
+				class: "daylio-year-line",
+			}));
+		}
 	}
 
 	// ── Mood bars (one <path> per mood level) ────────────────────

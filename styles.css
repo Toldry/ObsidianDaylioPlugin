@@ -133,6 +133,15 @@
 	fill: none;
 }
 
+/* Year-start separator — same dash pattern but more opaque and slightly
+   thicker so it stands out from the month grid lines. */
+.daylio-year-line {
+	stroke: var(--text-faint);
+	stroke-width: 1.5;
+	stroke-dasharray: 4 2;
+	fill: none;
+}
+
 .daylio-month-label {
 	font-size: 11px;
 	fill: var(--text-muted);
