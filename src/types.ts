@@ -62,6 +62,8 @@ export interface DaylioGraphSettings {
 	barWidth: number;
 	/** Vault-relative subdirectory to scan for event notes. Empty string = scan whole vault. */
 	eventScanDir: string;
+	/** Whether to render the floating event label cards below the graph. */
+	showEventLabels: boolean;
 }
 
 export const DEFAULT_SETTINGS: DaylioGraphSettings = {
@@ -69,6 +71,7 @@ export const DEFAULT_SETTINGS: DaylioGraphSettings = {
 	moodColors: { ...DEFAULT_MOOD_COLORS },
 	barWidth: 8,
 	eventScanDir: "",
+	showEventLabels: true,
 };
 
 /**
@@ -80,6 +83,21 @@ export interface HasDaylioSettings {
 	settings: DaylioGraphSettings;
 	saveSettings(): Promise<void>;
 }
+
+// ─── Zoom / bar-width constraints ───────────────────────────────────
+
+/** Minimum bar width in pixels (slider + stepZoom lower bound). */
+export const BAR_WIDTH_MIN = 0.25;
+/** Maximum bar width in pixels (slider + stepZoom upper bound). */
+export const BAR_WIDTH_MAX = 8;
+/** Increment used by the ± zoom buttons and the slider step attribute. */
+export const BAR_WIDTH_STEP = 0.25;
+/** barWidth threshold below which Ctrl+wheel uses the finer step. */
+export const BAR_WIDTH_FINE_THRESHOLD = 2;
+/** Ctrl+wheel zoom step when barWidth ≤ BAR_WIDTH_FINE_THRESHOLD. */
+export const BAR_WIDTH_FINE_STEP = 0.5;
+/** Ctrl+wheel zoom step when barWidth > BAR_WIDTH_FINE_THRESHOLD. */
+export const BAR_WIDTH_COARSE_STEP = 1;
 
 // ─── Layout helpers ─────────────────────────────────────────────────
 

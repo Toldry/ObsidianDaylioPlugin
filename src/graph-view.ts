@@ -4,6 +4,12 @@ import {
 	MOOD_LEVELS,
 	VIEW_TYPE_DAYLIO,
 	barGapFor,
+	BAR_WIDTH_MIN,
+	BAR_WIDTH_MAX,
+	BAR_WIDTH_STEP,
+	BAR_WIDTH_FINE_THRESHOLD,
+	BAR_WIDTH_FINE_STEP,
+	BAR_WIDTH_COARSE_STEP,
 	type DayData,
 	type VaultEvent,
 	type HasDaylioSettings,
@@ -131,8 +137,8 @@ export class DaylioGraphView extends ItemView {
 
 		const stepZoom = (delta: number): void => {
 			const newWidth = Math.max(
-				0.5,
-				Math.min(16, this.plugin.settings.barWidth + delta),
+				BAR_WIDTH_MIN,
+				Math.min(BAR_WIDTH_MAX, this.plugin.settings.barWidth + delta),
 			);
 			if (newWidth === this.plugin.settings.barWidth) return;
 			slider.value = String(newWidth);
@@ -154,13 +160,13 @@ export class DaylioGraphView extends ItemView {
 			cls: "daylio-zoom-btn",
 		});
 		minusBtn.setAttribute("aria-label", "Zoom out");
-		minusBtn.addEventListener("click", () => stepZoom(-0.5));
+		minusBtn.addEventListener("click", () => stepZoom(-BAR_WIDTH_STEP));
 
 		const slider = toolbar.createEl("input") as HTMLInputElement;
 		slider.type = "range";
-		slider.min = "0.5";
-		slider.max = "16";
-		slider.step = "0.5";
+		slider.min = String(BAR_WIDTH_MIN);
+		slider.max = String(BAR_WIDTH_MAX);
+		slider.step = String(BAR_WIDTH_STEP);
 		slider.value = String(this.plugin.settings.barWidth);
 		slider.addClass("daylio-zoom-slider");
 		this.zoomSlider = slider;
@@ -190,7 +196,31 @@ export class DaylioGraphView extends ItemView {
 			cls: "daylio-zoom-btn",
 		});
 		plusBtn.setAttribute("aria-label", "Zoom in");
-		plusBtn.addEventListener("click", () => stepZoom(0.5));
+		plusBtn.addEventListener("click", () => stepZoom(BAR_WIDTH_STEP));
+
+		// ── Labels toggle ────────────────────────────────────────
+		const labelsLabel = toolbar.createEl("label", {
+			cls: "daylio-labels-toggle",
+		});
+		const labelsCheck = labelsLabel.createEl("input") as HTMLInputElement;
+		labelsCheck.type = "checkbox";
+		labelsCheck.checked = this.plugin.settings.showEventLabels;
+		labelsLabel.createSpan({ text: "Labels" });
+		labelsCheck.addEventListener("change", async () => {
+			this.plugin.settings.showEventLabels = labelsCheck.checked;
+			this.quickRedraw(this.plugin.settings.barWidth);
+			await this.plugin.saveSettings();
+		});
+
+		// ── Refresh button ───────────────────────────────────────
+		const refreshBtn = toolbar.createEl("button", {
+			text: "↺",
+			cls: "daylio-zoom-btn",
+		});
+		refreshBtn.setAttribute("aria-label", "Refresh graph");
+		refreshBtn.addEventListener("click", () => {
+			void this.renderGraph();
+		});
 
 		// ── Collect vault events + cache parsed data ────────────
 		this.cachedVaultEvents = scanVaultEvents(
@@ -226,12 +256,14 @@ export class DaylioGraphView extends ItemView {
 				evt.preventDefault();
 				if (evt.ctrlKey) {
 					const step =
-						this.plugin.settings.barWidth <= 2 ? 0.5 : 1;
+						this.plugin.settings.barWidth <= BAR_WIDTH_FINE_THRESHOLD
+							? BAR_WIDTH_FINE_STEP
+							: BAR_WIDTH_COARSE_STEP;
 					const delta = evt.deltaY < 0 ? step : -step;
 					const newWidth = Math.max(
-						0.5,
+						BAR_WIDTH_MIN,
 						Math.min(
-							16,
+							BAR_WIDTH_MAX,
 							this.plugin.settings.barWidth + delta,
 						),
 					);
@@ -341,6 +373,7 @@ export class DaylioGraphView extends ItemView {
 		return buildGraphSvg(barWidth, this.cachedDays, this.cachedVaultEvents, {
 			moodColors: this.plugin.settings.moodColors,
 			openFile: (fp) => this.openFile(fp),
+			showEventLabels: this.plugin.settings.showEventLabels,
 		});
 	}
 

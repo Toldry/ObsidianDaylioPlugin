@@ -260,7 +260,7 @@ describe("Vault events integration (test vault notes)", () => {
 	});
 
 	it("detects the 'Got promoted' event on 2025-03-10", () => {
-		expect(eventsByDate.get("2025-03-10")?.label).toBe("Got promoted");
+		expect(eventsByDate.get("2025-03-10")?.label).toBe("Got promoted!");
 	});
 
 	// ── Dated notes without a daylio_event label ────────────────────

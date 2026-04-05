@@ -98,6 +98,23 @@ export class DaylioSettingTab extends PluginSettingTab {
 					})
 			);
 
+		new Setting(containerEl)
+			.setName("Show event labels")
+			.setDesc(
+				"Display the floating label cards for notes that have a " +
+				"daylio_event frontmatter field. " +
+				"The column highlights and hover markers are always shown.",
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.showEventLabels)
+					.onChange(async (value) => {
+						log("showEventLabels changed to:", value);
+						this.plugin.settings.showEventLabels = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
 		containerEl.createEl("h3", { text: "Mood Colours" });
 
 		for (const mood of MOOD_LEVELS) {

@@ -118,6 +118,8 @@ export function computeEntrySpans(
 export interface GraphBuildContext {
 	moodColors: Record<MoodLevel, string>;
 	openFile: (filePath: string) => void;
+	/** When false, event label cards and their connector lines are omitted. */
+	showEventLabels: boolean;
 }
 
 /**
@@ -156,7 +158,7 @@ export function buildGraphSvg(
 		eventsByDate.set(ev.date, ev);
 	}
 
-	// ── Per-label metrics (text measurement + line parsing) ──────
+	// ── Per-label metrics + row layout (skipped when labels hidden) ─
 	// Literal "\n" sequences in the YAML value (unquoted / single-
 	// quoted) are treated as newlines, as are real newlines that
 	// YAML double-quoting produces.
@@ -166,22 +168,26 @@ export function buildGraphSvg(
 		height: number;  // foreignObject height in px
 	}
 	const labelMetrics = new Map<string, LabelMetrics>();
-	{
+	const eventLabelRows = new Map<string, number>();
+	const rowMaxHeight: number[] = [];
+	const rowTopY: number[] = [];
+	const labelAreaTop = graphBottom + 8;
+
+	if (ctx.showEventLabels) {
+		// Measure each label's text so the foreignObject is sized to fit.
 		const measureCanvas = document.createElement("canvas");
 		const measureCtx = measureCanvas.getContext("2d");
 		if (measureCtx) {
-			// Use the same font size as .daylio-event-label; system-ui
-			// is close enough to the Obsidian interface font for layout.
 			measureCtx.font =
 				`${LABEL_FONT_SIZE}px system-ui, sans-serif`;
 		}
 		const measureLine = (text: string): number =>
 			measureCtx
 				? measureCtx.measureText(text).width
-				: text.length * 6;  // fallback: ~6 px per character
+				: text.length * 6;
 
 		for (const ev of eventsByDate.values()) {
-			if (!ev.label) continue;  // only labelled entries need metrics
+			if (!ev.label) continue;
 			const lines = ev.label
 				.replace(/\\n/g, "\n")
 				.split("\n");
@@ -191,24 +197,19 @@ export function buildGraphSvg(
 				lines.length * LABEL_LINE_HEIGHT_PX + LABEL_INNER_V_PAD;
 			labelMetrics.set(ev.date, { lines, width, height });
 		}
-	}
 
-	// ── Event label row assignment (greedy collision avoidance) ──
-	const eventLabelRows = new Map<string, number>();
-	const rowMaxHeight: number[] = [];
-	{
+		// Greedy collision-avoidance: assign each label the lowest row
+		// where it doesn't overlap any already-placed label.
 		const rowRightEdge: number[] = [];
 		for (let i = 0; i < days.length; i++) {
 			const day = days[i];
 			if (!day) continue;
 			const ev = eventsByDate.get(day.date);
-			if (!ev?.label) continue;  // only labelled entries get a label row
+			if (!ev?.label) continue;
 			const metrics = labelMetrics.get(day.date);
-			const labelWidth =
-				metrics?.width ?? LABEL_INNER_H_PAD + 60;
+			const labelWidth = metrics?.width ?? LABEL_INNER_H_PAD + 60;
 			const labelHeight =
-				metrics?.height ??
-				LABEL_LINE_HEIGHT_PX + LABEL_INNER_V_PAD;
+				metrics?.height ?? LABEL_LINE_HEIGHT_PX + LABEL_INNER_V_PAD;
 			const cx = LEFT_PAD + i * stride + BAR_WIDTH / 2;
 			const left = cx - labelWidth / 2;
 			const right = cx + labelWidth / 2;
@@ -226,21 +227,15 @@ export function buildGraphSvg(
 			);
 			eventLabelRows.set(day.date, row);
 		}
-	}
-	const numLabelRows = Math.max(
-		1,
-		eventLabelRows.size > 0
-			? Math.max(...eventLabelRows.values()) + 1
-			: 0,
-	);
-	const labelAreaTop = graphBottom + 8;
 
-	// Compute the top y-coordinate of each label row, accounting for
-	// the fact that different rows may have different heights (because
-	// labels within a row can have different line counts).
-	const rowTopY: number[] = [];
-	{
+		// Compute each row's top y, stacking rows with variable heights.
 		let y = labelAreaTop;
+		const numLabelRows = Math.max(
+			1,
+			eventLabelRows.size > 0
+				? Math.max(...eventLabelRows.values()) + 1
+				: 0,
+		);
 		for (let row = 0; row < numLabelRows; row++) {
 			rowTopY[row] = y;
 			y +=
@@ -249,11 +244,13 @@ export function buildGraphSvg(
 				LABEL_ROW_GAP;
 		}
 	}
-	const lastRowBottom =
-		(rowTopY[numLabelRows - 1] ?? labelAreaTop) +
-		(rowMaxHeight[numLabelRows - 1] ??
-			LABEL_LINE_HEIGHT_PX + LABEL_INNER_V_PAD);
-	const totalHeight = lastRowBottom + 4;
+
+	// SVG height: includes label area when visible, otherwise just the graph.
+	const totalHeight = ctx.showEventLabels && rowTopY.length > 0
+		? (rowTopY[rowTopY.length - 1] ?? labelAreaTop) +
+		  (rowMaxHeight[rowTopY.length - 1] ??
+		      LABEL_LINE_HEIGHT_PX + LABEL_INNER_V_PAD) + 4
+		: graphBottom + 4;
 	const graphWidth = days.length * stride - BAR_GAP + 40;
 
 	// ── Root SVG element ─────────────────────────────────────────
@@ -377,66 +374,78 @@ export function buildGraphSvg(
 	}
 
 	// ── Event labels + connectors ────────────────────────────────
-	for (let i = 0; i < days.length; i++) {
-		const day = days[i];
-		if (!day) continue;
-		const event = eventsByDate.get(day.date);
-		if (!event?.label) continue;  // only labelled entries get a text annotation
+	// Two-pass rendering: connectors first (behind), labels second
+	// (in front) so that crossing connector lines never obscure text.
+	if (ctx.showEventLabels) {
+		// Pass 1 — connector lines (drawn behind labels).
+		for (let i = 0; i < days.length; i++) {
+			const day = days[i];
+			if (!day) continue;
+			const event = eventsByDate.get(day.date);
+			if (!event?.label) continue;
 
-		const eventLabel = event.label;
-		const metrics = labelMetrics.get(day.date);
-		const labelWidth = metrics?.width ?? LABEL_INNER_H_PAD + 60;
-		const labelHeight =
-			metrics?.height ?? LABEL_LINE_HEIGHT_PX + LABEL_INNER_V_PAD;
-		const lines = metrics?.lines ?? [eventLabel];
+			const cx = LEFT_PAD + i * stride + BAR_WIDTH / 2;
+			const evRow = eventLabelRows.get(day.date) ?? 0;
+			const labelY = rowTopY[evRow] ?? labelAreaTop;
 
-		const cx = LEFT_PAD + i * stride + BAR_WIDTH / 2;
-		const evRow = eventLabelRows.get(day.date) ?? 0;
-		const labelY = rowTopY[evRow] ?? labelAreaTop;
-
-		svg.appendChild(svgEl("line", {
-			x1: String(cx),
-			y1: "0",
-			x2: String(cx),
-			y2: String(labelY),
-			class: "daylio-event-connector",
-		}));
-
-		const fo = svgEl("foreignObject", {
-			x: String(cx - labelWidth / 2),
-			y: String(labelY),
-			width: String(labelWidth),
-			height: String(labelHeight),
-		});
-
-		const labelDiv = document.createElement("div");
-		labelDiv.className = "daylio-event-label";
-		// Tooltip shows the full label text (with real newlines)
-		// plus the date, so the user can read long/wrapped labels.
-		labelDiv.title =
-			`${lines.join("\n")}\n${event.date}\nClick to open note`;
-
-		// Build multi-line content via DOM nodes rather than innerHTML
-		// so that special characters in the label are never interpreted
-		// as markup.
-		for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
-			if (lineIdx > 0) {
-				labelDiv.appendChild(document.createElement("br"));
-			}
-			labelDiv.appendChild(
-				document.createTextNode(lines[lineIdx] ?? ""),
-			);
+			svg.appendChild(svgEl("line", {
+				x1: String(cx),
+				y1: "0",
+				x2: String(cx),
+				y2: String(labelY),
+				class: "daylio-event-connector",
+			}));
 		}
 
-		const filePath = event.filePath;
-		labelDiv.addEventListener("click", (evt) => {
-			evt.preventDefault();
-			evt.stopPropagation();
-			ctx.openFile(filePath);
-		});
+		// Pass 2 — label cards (drawn in front of connectors).
+		for (let i = 0; i < days.length; i++) {
+			const day = days[i];
+			if (!day) continue;
+			const event = eventsByDate.get(day.date);
+			if (!event?.label) continue;
 
-		fo.appendChild(labelDiv);
-		svg.appendChild(fo);
+			const eventLabel = event.label;
+			const metrics = labelMetrics.get(day.date);
+			const labelWidth = metrics?.width ?? LABEL_INNER_H_PAD + 60;
+			const labelHeight =
+				metrics?.height ?? LABEL_LINE_HEIGHT_PX + LABEL_INNER_V_PAD;
+			const lines = metrics?.lines ?? [eventLabel];
+
+			const cx = LEFT_PAD + i * stride + BAR_WIDTH / 2;
+			const evRow = eventLabelRows.get(day.date) ?? 0;
+			const labelY = rowTopY[evRow] ?? labelAreaTop;
+
+			const fo = svgEl("foreignObject", {
+				x: String(cx - labelWidth / 2),
+				y: String(labelY),
+				width: String(labelWidth),
+				height: String(labelHeight),
+			});
+
+			const labelDiv = document.createElement("div");
+			labelDiv.className = "daylio-event-label";
+			labelDiv.title =
+				`${lines.join("\n")}\n${event.date}\nClick to open note`;
+
+			for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+				if (lineIdx > 0) {
+					labelDiv.appendChild(document.createElement("br"));
+				}
+				labelDiv.appendChild(
+					document.createTextNode(lines[lineIdx] ?? ""),
+				);
+			}
+
+			const filePath = event.filePath;
+			labelDiv.addEventListener("click", (evt) => {
+				evt.preventDefault();
+				evt.stopPropagation();
+				ctx.openFile(filePath);
+			});
+
+			fo.appendChild(labelDiv);
+			svg.appendChild(fo);
+		}
 	}
 
 	// ── Shared hover labels (date + entry filename) ─────────────
@@ -531,7 +540,7 @@ export function buildGraphSvg(
 	log(
 		"buildGraphSvg: SVG dimensions",
 		graphWidth, "×", totalHeight,
-		"px,", numLabelRows, "event label row(s),",
+		"px,", rowTopY.length, "event label row(s),",
 		(performance.now() - buildStart).toFixed(2), "ms",
 	);
 	return svg;

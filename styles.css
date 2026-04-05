@@ -54,6 +54,22 @@
 	cursor: pointer;
 }
 
+.daylio-labels-toggle {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 12px;
+	color: var(--text-muted);
+	cursor: pointer;
+	user-select: none;
+	margin-left: 4px;
+}
+
+.daylio-labels-toggle input[type="checkbox"] {
+	accent-color: var(--interactive-accent);
+	cursor: pointer;
+}
+
 /* ── Legend ─────────────────────────────────────────────────── */
 
 .daylio-graph-legend {
@@ -148,7 +164,7 @@
 }
 
 .daylio-hover-name-label {
-	font-size: 8px;
+	font-size: 11px;
 	font-family: var(--font-interface);
 	fill: var(--text-muted);
 	text-anchor: middle;
