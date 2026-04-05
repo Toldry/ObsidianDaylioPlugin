@@ -250,11 +250,30 @@ export class DaylioGraphView extends ItemView {
 
 		this.setupDragPan(this.scrollContainer);
 
+		// Track whether the right mouse button is currently held so the
+		// wheel handler can use it as a zoom modifier (right-hold + scroll).
+		let rightButtonHeld = false;
+
+		this.scrollContainer.addEventListener("mousedown", (evt) => {
+			if (evt.button === 2) rightButtonHeld = true;
+		});
+		// Release on mouseup anywhere — the pointer may have drifted off
+		// the scroll container while held.
+		document.addEventListener("mouseup", (evt) => {
+			if (evt.button === 2) rightButtonHeld = false;
+		});
+		// Suppress the context menu when right-button was used for zooming.
+		// Only fires when the button is released without having scrolled, so
+		// normal (non-scrolling) right-clicks still work outside this element.
+		this.scrollContainer.addEventListener("contextmenu", (evt) => {
+			if (rightButtonHeld) evt.preventDefault();
+		});
+
 		this.scrollContainer.addEventListener(
 			"wheel",
 			(evt) => {
 				evt.preventDefault();
-				if (evt.ctrlKey) {
+				if (evt.ctrlKey || rightButtonHeld) {
 					const step =
 						this.plugin.settings.barWidth <= BAR_WIDTH_FINE_THRESHOLD
 							? BAR_WIDTH_FINE_STEP
