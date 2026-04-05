@@ -149,8 +149,8 @@ npm run dev          # watch mode with inline source maps
 npm run build        # production bundle (type-checks first)
 ```
 
-After building, copy `main.js`, `main.js.map`, `manifest.json`, and
-`styles.css` into your vault's plugin folder and reload Obsidian
+After building, copy `build/main.js`, `build/main.js.map`, `manifest.json`,
+and `styles.css` into your vault's plugin folder and reload Obsidian
 (Ctrl+R / Cmd+R). The shorthand `npm run build:vault` builds and copies
 in one step.
 

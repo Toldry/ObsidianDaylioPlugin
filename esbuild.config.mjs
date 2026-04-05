@@ -42,7 +42,7 @@ const context = await esbuild.context({
 	// Prod: linked writes main.js.map as a separate release asset.
 	sourcemap: prod ? "linked" : "inline",
 	treeShaking: true,
-	outfile: "main.js",
+	outfile: "build/main.js",
 	minify: false,
 });
 

@@ -46,7 +46,7 @@ file, not the TypeScript sources directly.
   fetched, so Obsidian's `app://` scheme never blocks it. After reloading
   Obsidian, TypeScript files appear under DevTools → Sources → Page →
   `plugin:daylio-mood-graph` → `src/`.
-- **Prod** (`npm run build`): `sourcemap: "linked"` — writes `main.js.map`
+- **Prod** (`npm run build`): `sourcemap: "linked"` — writes `build/main.js.map`
   as a separate file and adds a `//# sourceMappingURL=main.js.map` comment.
   Ship `main.js.map` alongside `main.js` as a release asset.
 
@@ -86,8 +86,9 @@ daylio-obsidian-plugin/
 ├── vitest.config.ts             ← Test runner config (aliases obsidian → mock)
 ├── esbuild.config.mjs
 ├── styles.css                   ← All CSS (uses Obsidian CSS variables)
-├── main.js                      ← Compiled output — do not edit by hand
-└── main.js.map                  ← External source map — do not edit by hand
+└── build/                       ← Compiled output (gitignored) — do not edit by hand
+    ├── main.js
+    └── main.js.map
 ```
 
 ## Architecture
@@ -166,11 +167,11 @@ Or manually:
 
 ```bash
 # Unix/macOS
-cp main.js main.js.map manifest.json styles.css \
+cp build/main.js build/main.js.map manifest.json styles.css \
   daylio_plugin_test_vault/.obsidian/plugins/daylio-mood-graph/
 
 # PowerShell
-Copy-Item main.js, main.js.map, manifest.json, styles.css `
+Copy-Item build\main.js, build\main.js.map, manifest.json, styles.css `
   daylio_plugin_test_vault\.obsidian\plugins\daylio-mood-graph\
 ```
 
@@ -330,5 +331,5 @@ The files Obsidian needs are `main.js`, `main.js.map`, `manifest.json`, and
 1. Bump `version` in `manifest.json` (and `package.json`).
 2. Run `npm run build`.
 3. Create a GitHub release tagged with the version number (e.g. `1.0.0`).
-4. Attach `main.js`, `main.js.map`, `manifest.json`, and `styles.css` as
-   release assets.
+4. Attach `build/main.js`, `build/main.js.map`, `manifest.json`, and
+   `styles.css` as release assets.
