@@ -17,7 +17,14 @@ import {
 } from "./types";
 import { parseDaylioCsv, groupByDay } from "./csv-parser";
 import { scanVaultEvents } from "./vault-scanner";
-import { buildGraphSvg } from "./graph-builder";
+import { buildGraphSvg, LEFT_PAD, RIGHT_PAD } from "./graph-builder";
+
+/** Horizontal drag distance (px) above which a mouseup is treated as a pan
+ *  gesture rather than a click, suppressing child click handlers. */
+const DRAG_CLICK_THRESHOLD_PX = 4;
+/** Debounce delay (ms) before persisting barWidth to disk after a wheel zoom.
+ *  Batches rapid scroll events into a single saveSettings() call. */
+const SAVE_DEBOUNCE_MS = 300;
 
 export class DaylioGraphView extends ItemView {
 	private plugin: HasDaylioSettings & { app: App };
@@ -27,6 +34,21 @@ export class DaylioGraphView extends ItemView {
 	private zoomDebounceTimer: ReturnType<typeof setTimeout> | undefined;
 	private cachedDays: DayData[] = [];
 	private cachedVaultEvents: VaultEvent[] = [];
+	/** Pending requestAnimationFrame id for scroll-position restore after a
+	 *  quickRedraw.  Cancelled before each new quickRedraw so that only the
+	 *  most-recent anchor calculation takes effect, preventing stale RAF
+	 *  callbacks from snapping the scroll to wrong positions during rapid zoom. */
+	private scrollRafId: number | null = null;
+	/** The scroll-left value that the pending RAF will apply.  Set
+	 *  synchronously by quickRedraw so that a subsequent wheel event
+	 *  (arriving before the RAF fires) reads the correct logical scroll
+	 *  position rather than the stale 0 left by scrollContainer.empty(). */
+	private intendedScrollLeft: number | null = null;
+	/** Incremented at the start of every renderGraph() call.  Any suspended
+	 *  render that finds a newer generation has started aborts without
+	 *  writing to the DOM, preventing duplicate scroll containers (and the
+	 *  duplicate wheel listeners they carry). */
+	private renderGeneration = 0;
 
 	constructor(leaf: WorkspaceLeaf, plugin: HasDaylioSettings & { app: App }) {
 		super(leaf);
@@ -70,7 +92,8 @@ export class DaylioGraphView extends ItemView {
 
 	/** Full re-render — called on open and when settings change. */
 	async renderGraph(): Promise<void> {
-		log("renderGraph: starting full render");
+		const generation = ++this.renderGeneration;
+		log("renderGraph: starting full render (generation", generation, ")");
 		const container = this.containerEl.children[1] as HTMLElement;
 
 		if (this.scrollContainer) {
@@ -118,6 +141,15 @@ export class DaylioGraphView extends ItemView {
 				text: "Failed to read the CSV file.",
 				cls: "daylio-graph-notice",
 			});
+			return;
+		}
+
+		// A newer renderGraph() call started while we were waiting for the
+		// vault read.  Bail out without touching the DOM so only the latest
+		// render wins and we never end up with duplicate scroll containers
+		// (and their duplicate wheel listeners).
+		if (generation !== this.renderGeneration) {
+			log("renderGraph: stale generation", generation, "— aborting");
 			return;
 		}
 
@@ -222,6 +254,12 @@ export class DaylioGraphView extends ItemView {
 			void this.renderGraph();
 		});
 
+		// ── Version label (right-aligned) ───────────────────────
+		toolbar.createSpan({
+			text: `v${this.plugin.manifest.version}`,
+			cls: "daylio-version-label",
+		});
+
 		// ── Collect vault events + cache parsed data ────────────
 		this.cachedVaultEvents = scanVaultEvents(
 			this.app,
@@ -258,8 +296,10 @@ export class DaylioGraphView extends ItemView {
 			if (evt.button === 2) rightButtonHeld = true;
 		});
 		// Release on mouseup anywhere — the pointer may have drifted off
-		// the scroll container while held.
-		document.addEventListener("mouseup", (evt) => {
+		// the scroll container while held.  Use registerDomEvent so the
+		// listener is removed when the view closes (not a bare document
+		// listener that accumulates across renderGraph() calls).
+		this.registerDomEvent(document, "mouseup", (evt: MouseEvent) => {
 			if (evt.button === 2) rightButtonHeld = false;
 		});
 		// Suppress the context menu when right-button was used for zooming.
@@ -272,8 +312,13 @@ export class DaylioGraphView extends ItemView {
 		this.scrollContainer.addEventListener(
 			"wheel",
 			(evt) => {
+				// Stop all wheel events here: prevents Obsidian's own
+				// Ctrl+wheel handler (which may be capturing or document-
+				// level) from also firing and producing a double-tick.
 				evt.preventDefault();
-				if (evt.ctrlKey || rightButtonHeld) {
+				evt.stopPropagation();
+				evt.stopImmediatePropagation();
+				if ((evt.ctrlKey || rightButtonHeld) && evt.deltaY !== 0) {
 					const step =
 						this.plugin.settings.barWidth <= BAR_WIDTH_FINE_THRESHOLD
 							? BAR_WIDTH_FINE_STEP
@@ -290,8 +335,14 @@ export class DaylioGraphView extends ItemView {
 						const rect =
 							this.scrollContainer!.getBoundingClientRect();
 						const viewportX = evt.clientX - rect.left;
-						const svgX =
-							this.scrollContainer!.scrollLeft + viewportX;
+						// Use intendedScrollLeft when a RAF is pending:
+						// scrollContainer.empty() resets scrollLeft to 0
+						// synchronously, so reading it directly before the
+						// RAF fires gives the wrong anchor position.
+						const currentScrollLeft =
+							this.intendedScrollLeft ??
+							this.scrollContainer!.scrollLeft;
+						const svgX = currentScrollLeft + viewportX;
 						const oldBW = this.plugin.settings.barWidth;
 						this.quickRedraw(newWidth, {
 							svgX,
@@ -301,7 +352,7 @@ export class DaylioGraphView extends ItemView {
 						clearTimeout(this.zoomDebounceTimer);
 						this.zoomDebounceTimer = setTimeout(async () => {
 							await this.plugin.saveSettings();
-						}, 300);
+						}, SAVE_DEBOUNCE_MS);
 					}
 				} else {
 					this.scrollContainer!.scrollLeft +=
@@ -378,7 +429,7 @@ export class DaylioGraphView extends ItemView {
 			scrollEl,
 			"click",
 			(evt: MouseEvent) => {
-				if (totalDragPx > 4) {
+				if (totalDragPx > DRAG_CLICK_THRESHOLD_PX) {
 					evt.stopPropagation();
 					evt.preventDefault();
 					totalDragPx = 0;
@@ -389,11 +440,12 @@ export class DaylioGraphView extends ItemView {
 	}
 
 	/** Thin wrapper around the pure graph builder, passing context. */
-	private buildSvg(barWidth: number): SVGSVGElement {
+	private buildSvg(barWidth: number, minWidth?: number): SVGSVGElement {
 		return buildGraphSvg(barWidth, this.cachedDays, this.cachedVaultEvents, {
 			moodColors: this.plugin.settings.moodColors,
 			openFile: (fp) => this.openFile(fp),
 			showEventLabels: this.plugin.settings.showEventLabels,
+			minWidth,
 		});
 	}
 
@@ -430,21 +482,59 @@ export class DaylioGraphView extends ItemView {
 		if (this.zoomSlider) {
 			this.zoomSlider.value = String(newWidth);
 		}
-		this.scrollContainer.empty();
-		this.scrollContainer.appendChild(this.buildSvg(newWidth));
+		// Compute dimensions before building the SVG so we can pass minWidth.
+		// The SVG's intrinsic width matches the formula in graph-builder.ts:
+		//   graphWidth = N * stride - gap + LEFT_PAD + RIGHT_PAD
+		const newStride = newWidth + barGapFor(newWidth);
+		const intrinsicSvgWidth =
+			this.cachedDays.length * newStride -
+			barGapFor(newWidth) +
+			LEFT_PAD + RIGHT_PAD;
+		const containerWidth = this.scrollContainer.clientWidth;
 
-		requestAnimationFrame(() => {
+		let neededSvgWidth: number;
+		if (anchor) {
+			// Compute the target scroll position synchronously so that any
+			// wheel event arriving before the RAF fires reads the correct
+			// logical position from intendedScrollLeft rather than the stale
+			// 0 that scrollContainer.empty() leaves behind.
+			const newSvgX =
+				LEFT_PAD +
+				(anchor.svgX - LEFT_PAD) *
+					(newStride / anchor.oldStride);
+			const rawScrollLeft = newSvgX - anchor.viewportX;
+			// Extend the SVG so it is always wide enough to accommodate the
+			// intended scroll position.  This guarantees the scrollbar is
+			// functional even when graph content would naturally fit within
+			// the viewport, eliminating the boundary-crossing anchor glitch.
+			neededSvgWidth = Math.max(
+				intrinsicSvgWidth,
+				Math.max(0, rawScrollLeft) + containerWidth,
+			);
+			const maxScroll = neededSvgWidth - containerWidth;
+			this.intendedScrollLeft = Math.max(
+				0,
+				Math.min(maxScroll, rawScrollLeft),
+			);
+		} else {
+			// Non-anchor redraw: keep the SVG at least 1 px wider than the
+			// container so the scrollbar remains visible and functional.
+			neededSvgWidth = Math.max(intrinsicSvgWidth, containerWidth + 1);
+			this.intendedScrollLeft = null;
+		}
+
+		this.scrollContainer.empty();
+		this.scrollContainer.appendChild(this.buildSvg(newWidth, neededSvgWidth));
+
+		if (this.scrollRafId !== null) {
+			cancelAnimationFrame(this.scrollRafId);
+		}
+		this.scrollRafId = requestAnimationFrame(() => {
+			this.scrollRafId = null;
 			if (!this.scrollContainer) return;
-			if (anchor) {
-				const newStride = newWidth + barGapFor(newWidth);
-				const newSvgX =
-					20 +
-					(anchor.svgX - 20) *
-						(newStride / anchor.oldStride);
-				this.scrollContainer.scrollLeft = Math.max(
-					0,
-					newSvgX - anchor.viewportX,
-				);
+			if (this.intendedScrollLeft !== null) {
+				this.scrollContainer.scrollLeft = this.intendedScrollLeft;
+				this.intendedScrollLeft = null;
 			} else {
 				const maxScroll =
 					this.scrollContainer.scrollWidth -

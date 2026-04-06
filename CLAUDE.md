@@ -206,8 +206,8 @@ Settings are persisted by Obsidian to
 | `BAR_WIDTH_MAX` | 8 | Maximum bar width in px |
 | `BAR_WIDTH_STEP` | 0.25 | Slider / ±button step size |
 | `BAR_WIDTH_FINE_THRESHOLD` | 2 | Below this, Ctrl+wheel uses the fine step |
-| `BAR_WIDTH_FINE_STEP` | 0.5 | Ctrl+wheel step at low zoom |
-| `BAR_WIDTH_COARSE_STEP` | 1 | Ctrl+wheel step at high zoom |
+| `BAR_WIDTH_FINE_STEP` | 0.25 | Ctrl+wheel step at low zoom (matches ± button step) |
+| `BAR_WIDTH_COARSE_STEP` | 0.5 | Ctrl+wheel step at high zoom |
 
 At `barWidth ≤ 0.5` the graph enters "year-only" mode: only year-start labels
 are rendered and year separator lines use the `.daylio-year-line` CSS class

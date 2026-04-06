@@ -20,3 +20,7 @@ vitest.config.ts.timestamp*.mjs
 # Obsidian workspace state (personal, not shared)
 daylio_plugin_test_vault/.obsidian/workspace.json
 daylio_plugin_test_vault/.obsidian/workspace-mobile.json
+
+
+# Built obsidian files
+daylio_plugin_test_vault/.obsidian/plugins/daylio-mood-graph/

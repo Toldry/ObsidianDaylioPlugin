@@ -77,6 +77,14 @@
 	cursor: pointer;
 }
 
+.daylio-version-label {
+	margin-left: auto;
+	font-size: 11px;
+	color: var(--text-faint);
+	white-space: nowrap;
+	user-select: none;
+}
+
 /* ── Legend ─────────────────────────────────────────────────── */
 
 /* Floats in the bottom-right corner of the graph root, overlaid
@@ -133,6 +141,23 @@
 /* Applied to document.body while a pan drag is active.         */
 /* !important overrides child cursor rules (pointer on entries) */
 /* so the grabbing cursor is consistent across the whole graph. */
+/* Force a permanently-visible thin scrollbar on WebKit/Blink (Electron).
+   Without this, macOS overlay scrollbars hide until the user scrolls. */
+.daylio-graph-scroll::-webkit-scrollbar {
+	height: 6px;
+}
+.daylio-graph-scroll::-webkit-scrollbar-track {
+	background: var(--background-secondary);
+	border-radius: 3px;
+}
+.daylio-graph-scroll::-webkit-scrollbar-thumb {
+	background: var(--background-modifier-border);
+	border-radius: 3px;
+}
+.daylio-graph-scroll::-webkit-scrollbar-thumb:hover {
+	background: var(--text-faint);
+}
+
 .daylio-is-panning,
 .daylio-is-panning * {
 	cursor: grabbing !important;

@@ -82,6 +82,7 @@ export const DEFAULT_SETTINGS: DaylioGraphSettings = {
 export interface HasDaylioSettings {
 	settings: DaylioGraphSettings;
 	saveSettings(): Promise<void>;
+	manifest: { version: string };
 }
 
 // ─── Zoom / bar-width constraints ───────────────────────────────────
@@ -94,10 +95,14 @@ export const BAR_WIDTH_MAX = 8;
 export const BAR_WIDTH_STEP = 0.25;
 /** barWidth threshold below which Ctrl+wheel uses the finer step. */
 export const BAR_WIDTH_FINE_THRESHOLD = 2;
-/** Ctrl+wheel zoom step when barWidth ≤ BAR_WIDTH_FINE_THRESHOLD. */
-export const BAR_WIDTH_FINE_STEP = 0.5;
+/** Ctrl+wheel zoom step when barWidth ≤ BAR_WIDTH_FINE_THRESHOLD.
+ *  Matches BAR_WIDTH_STEP so one scroll notch equals one ± button press. */
+export const BAR_WIDTH_FINE_STEP = 0.25;
 /** Ctrl+wheel zoom step when barWidth > BAR_WIDTH_FINE_THRESHOLD. */
-export const BAR_WIDTH_COARSE_STEP = 1;
+export const BAR_WIDTH_COARSE_STEP = 0.5;
+/** Bar width at or below which only year-start labels are shown on the graph;
+ *  month labels would be too crowded at this zoom level. */
+export const BAR_WIDTH_YEAR_ONLY_THRESHOLD = 0.5;
 
 // ─── Layout helpers ─────────────────────────────────────────────────
 

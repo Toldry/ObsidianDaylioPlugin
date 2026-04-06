@@ -2,6 +2,8 @@ import {
 	MOOD_LEVELS,
 	MOOD_TO_LANE,
 	barGapFor,
+	BAR_WIDTH_MAX,
+	BAR_WIDTH_YEAR_ONLY_THRESHOLD,
 	type MoodLevel,
 	type DayData,
 	type VaultEvent,
@@ -13,7 +15,9 @@ import log from "./log";
 const GRAPH_HEIGHT = 200;
 const LANE_COUNT = MOOD_LEVELS.length; // 5
 const LANE_HEIGHT = GRAPH_HEIGHT / LANE_COUNT; // 40
-const MOOD_BAR_HEIGHT = Math.round(LANE_HEIGHT * 0.6);
+/** Fraction of LANE_HEIGHT a mood bar occupies vertically. */
+const MOOD_BAR_FILL_RATIO = 0.6;
+const MOOD_BAR_HEIGHT = Math.round(LANE_HEIGHT * MOOD_BAR_FILL_RATIO);
 const MOOD_BAR_OFFSET = Math.round((LANE_HEIGHT - MOOD_BAR_HEIGHT) / 2);
 const DATE_HEADER_HEIGHT = 14;
 const MIN_MONTH_LABEL_PX = 55;
@@ -23,7 +27,37 @@ const LABEL_INNER_H_PAD = 14;      // padding(4×2) + border(1×2) + slack(4)
 const LABEL_INNER_V_PAD = 8;       // padding(2×2) + border(1×2) + slack(2)
 const LABEL_ROW_GAP = 4;           // vertical gap between label rows
 const LABEL_H_PAD = 6;             // horizontal gap between adjacent labels
-const LEFT_PAD = 20;
+/** Fallback text content width (px) used when canvas measurement is unavailable. */
+const LABEL_DEFAULT_TEXT_WIDTH = 60;
+/** Vertical gap (px) between the bottom of the graph area and the first label row. */
+const LABEL_AREA_GAP = 8;
+/** Maximum corner radius (px) for mood bar rounded rectangles. */
+const BAR_CORNER_RADIUS_MAX = 2;
+/** How many pixels left of a month/year boundary the separator line and label are placed. */
+const SEPARATOR_X_OFFSET = 2;
+/** Y coordinate (px) of month/year labels inside the date header strip. */
+const MONTH_LABEL_Y = 12;
+/** Extra vertical pixels added below the last row of content to pad the SVG bottom. */
+const SVG_BOTTOM_PAD = 4;
+/** How far (px) above graphTop the date-of-month tick labels are drawn. */
+const DATE_TICK_OFFSET = 4;
+/** Bar width threshold above which every day gets a date tick. */
+const DATE_TICK_THRESHOLD_FULL = BAR_WIDTH_MAX;
+/** Bar width threshold above which every-5th-day ticks are shown. */
+const DATE_TICK_THRESHOLD_COARSE = 5;
+/** Bar width threshold above which every-10th-day ticks are shown. */
+const DATE_TICK_THRESHOLD_MEDIUM = 3;
+/** Day-of-month modulus for coarse (every-5th) tick rendering. */
+const DATE_TICK_INTERVAL_COARSE = 5;
+/** Day-of-month modulus for fine (every-10th) tick rendering. */
+const DATE_TICK_INTERVAL_FINE = 10;
+/** Distance (px) above graphBottom for the hovered-day ISO date label. */
+const HOVER_DATE_LABEL_OFFSET = 14;
+/** Distance (px) above graphBottom for the hovered-day entry name label. */
+const HOVER_NAME_LABEL_OFFSET = 4;
+export const LEFT_PAD = 20;
+/** Right padding (px) added after the last bar column. */
+export const RIGHT_PAD = 20;
 
 // ─── SVG helper ─────────────────────────────────────────────────────
 
@@ -120,6 +154,12 @@ export interface GraphBuildContext {
 	openFile: (filePath: string) => void;
 	/** When false, event label cards and their connector lines are omitted. */
 	showEventLabels: boolean;
+	/** When set, the SVG is padded on the right so its rendered width is at
+	 *  least this many pixels.  Used by graph-view to ensure the scroll
+	 *  container always has a functional scroll range (scrollLeft can always
+	 *  be nonzero), which keeps cursor-anchored zoom correct even when the
+	 *  graph would otherwise fit entirely within the viewport. */
+	minWidth?: number;
 }
 
 /**
@@ -171,7 +211,7 @@ export function buildGraphSvg(
 	const eventLabelRows = new Map<string, number>();
 	const rowMaxHeight: number[] = [];
 	const rowTopY: number[] = [];
-	const labelAreaTop = graphBottom + 8;
+	const labelAreaTop = graphBottom + LABEL_AREA_GAP;
 
 	if (ctx.showEventLabels) {
 		// Measure each label's text so the foreignObject is sized to fit.
@@ -207,7 +247,8 @@ export function buildGraphSvg(
 			const ev = eventsByDate.get(day.date);
 			if (!ev?.label) continue;
 			const metrics = labelMetrics.get(day.date);
-			const labelWidth = metrics?.width ?? LABEL_INNER_H_PAD + 60;
+			const labelWidth =
+				metrics?.width ?? LABEL_INNER_H_PAD + LABEL_DEFAULT_TEXT_WIDTH;
 			const labelHeight =
 				metrics?.height ?? LABEL_LINE_HEIGHT_PX + LABEL_INNER_V_PAD;
 			const cx = LEFT_PAD + i * stride + BAR_WIDTH / 2;
@@ -249,15 +290,19 @@ export function buildGraphSvg(
 	const totalHeight = ctx.showEventLabels && rowTopY.length > 0
 		? (rowTopY[rowTopY.length - 1] ?? labelAreaTop) +
 		  (rowMaxHeight[rowTopY.length - 1] ??
-		      LABEL_LINE_HEIGHT_PX + LABEL_INNER_V_PAD) + 4
-		: graphBottom + 4;
-	const graphWidth = days.length * stride - BAR_GAP + 40;
+		      LABEL_LINE_HEIGHT_PX + LABEL_INNER_V_PAD) + SVG_BOTTOM_PAD
+		: graphBottom + SVG_BOTTOM_PAD;
+	const graphWidth = days.length * stride - BAR_GAP + LEFT_PAD + RIGHT_PAD;
+	// Honour the caller's minimum-width request (see GraphBuildContext.minWidth).
+	// Both width and viewBox are widened so the extra space is truly empty
+	// (no scaling) — bars remain at their natural coordinates.
+	const svgWidth = Math.max(graphWidth, ctx.minWidth ?? 0);
 
 	// ── Root SVG element ─────────────────────────────────────────
 	const svg = svgEl("svg", {
-		width: String(graphWidth),
+		width: String(svgWidth),
 		height: String(totalHeight),
-		viewBox: `0 0 ${graphWidth} ${totalHeight}`,
+		viewBox: `0 0 ${svgWidth} ${totalHeight}`,
 		class: "daylio-graph-svg",
 	}) as SVGSVGElement;
 
@@ -279,7 +324,7 @@ export function buildGraphSvg(
 	// year starts to avoid crowding.  Year-start separator lines use
 	// a distinct CSS class so they can be styled more prominently.
 	{
-		const yearOnlyLabels = BAR_WIDTH <= 0.5;
+		const yearOnlyLabels = BAR_WIDTH <= BAR_WIDTH_YEAR_ONLY_THRESHOLD;
 		let monthPath = "";  // non-year-start separators
 		let yearPath  = "";  // year-start separators (styled differently)
 		let currentMonth = "";
@@ -295,10 +340,14 @@ export function buildGraphSvg(
 			const isYearStart = monthStr.endsWith("-01");
 
 			// Route the separator line into the appropriate path bucket.
+			// Lines start at graphTop (below the date header / labels) so
+			// they don't visually cut through the month/year text.
 			if (isYearStart) {
-				yearPath += `M${x - 2} 0V${graphBottom}`;
+				yearPath +=
+					`M${x - SEPARATOR_X_OFFSET} ${graphTop}V${graphBottom}`;
 			} else {
-				monthPath += `M${x - 2} 0V${graphBottom}`;
+				monthPath +=
+					`M${x - SEPARATOR_X_OFFSET} ${graphTop}V${graphBottom}`;
 			}
 
 			// Label: at max zoom-out show only year starts; otherwise
@@ -309,8 +358,9 @@ export function buildGraphSvg(
 				lastLabelX = x;
 				const year = monthStr.slice(0, 4);
 				const label = svgEl("text", {
-					x: String(x + 2),
-					y: "12",
+					x: String(x - SEPARATOR_X_OFFSET),
+					y: String(MONTH_LABEL_Y),
+					"text-anchor": "middle",
 					class: "daylio-month-label",
 				});
 				label.textContent = year;
@@ -323,8 +373,9 @@ export function buildGraphSvg(
 					month: "short",
 				});
 				const label = svgEl("text", {
-					x: String(x + 2),
-					y: "12",
+					x: String(x - SEPARATOR_X_OFFSET),
+					y: String(MONTH_LABEL_Y),
+					"text-anchor": "middle",
 					class: "daylio-month-label",
 				});
 				label.textContent = `${monthName} ${monthDate.getFullYear()}`;
@@ -361,7 +412,7 @@ export function buildGraphSvg(
 			const barY = graphTop + laneIndex * LANE_HEIGHT + MOOD_BAR_OFFSET;
 			// Rounded rect via path: moveTo + arc corners + lines.
 			// For very small bars the radius shrinks to half the width.
-			const rx = Math.min(2, BAR_WIDTH / 2);
+			const rx = Math.min(BAR_CORNER_RADIUS_MAX, BAR_WIDTH / 2);
 			const w = BAR_WIDTH;
 			const h = MOOD_BAR_HEIGHT;
 			moodPaths[entry.mood] +=
@@ -391,18 +442,20 @@ export function buildGraphSvg(
 		if (!day) continue;
 		const dayOfMonth = parseInt(day.date.slice(8, 10), 10);
 		const showTick =
-			BAR_WIDTH >= 8
+			BAR_WIDTH >= DATE_TICK_THRESHOLD_FULL
 				? true
-				: BAR_WIDTH >= 5
-					? dayOfMonth % 5 === 1 || dayOfMonth === 1
-					: BAR_WIDTH >= 3
-						? dayOfMonth % 10 === 1 || dayOfMonth === 1
+				: BAR_WIDTH >= DATE_TICK_THRESHOLD_COARSE
+					? dayOfMonth % DATE_TICK_INTERVAL_COARSE === 1 ||
+					  dayOfMonth === 1
+					: BAR_WIDTH >= DATE_TICK_THRESHOLD_MEDIUM
+						? dayOfMonth % DATE_TICK_INTERVAL_FINE === 1 ||
+						  dayOfMonth === 1
 						: false;
 
 		if (showTick) {
 			const tick = svgEl("text", {
 				x: String(LEFT_PAD + i * stride + BAR_WIDTH / 2),
-				y: String(graphTop - 4),
+				y: String(graphTop - DATE_TICK_OFFSET),
 				class: "daylio-date-tick",
 			});
 			tick.textContent = String(dayOfMonth);
@@ -443,7 +496,8 @@ export function buildGraphSvg(
 
 			const eventLabel = event.label;
 			const metrics = labelMetrics.get(day.date);
-			const labelWidth = metrics?.width ?? LABEL_INNER_H_PAD + 60;
+			const labelWidth =
+				metrics?.width ?? LABEL_INNER_H_PAD + LABEL_DEFAULT_TEXT_WIDTH;
 			const labelHeight =
 				metrics?.height ?? LABEL_LINE_HEIGHT_PX + LABEL_INNER_V_PAD;
 			const lines = metrics?.lines ?? [eventLabel];
@@ -493,14 +547,14 @@ export function buildGraphSvg(
 	//                     and .md extension stripped
 	const hoverDateLabel = svgEl("text", {
 		class: "daylio-hover-date-label",
-		y: String(graphBottom - 14),
+		y: String(graphBottom - HOVER_DATE_LABEL_OFFSET),
 		visibility: "hidden",
 	});
 	svg.appendChild(hoverDateLabel);
 
 	const hoverNameLabel = svgEl("text", {
 		class: "daylio-hover-name-label",
-		y: String(graphBottom - 4),
+		y: String(graphBottom - HOVER_NAME_LABEL_OFFSET),
 		visibility: "hidden",
 	});
 	svg.appendChild(hoverNameLabel);
