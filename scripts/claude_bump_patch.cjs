@@ -12,6 +12,7 @@
 
 const fs   = require("fs");
 const path = require("path");
+const bump_patch = require("./bump_patch.cjs").bump_patch;
 
 // ── Read hook payload from stdin ────────────────────────────────────────────
 let input;
@@ -26,7 +27,7 @@ const filePath = input?.tool_input?.file_path ?? "";
 if (!filePath) process.exit(0);
 
 // ── Guard: skip files outside the project or that would cause loops ────────
-const pluginDir = path.resolve(__dirname, "../..");
+const pluginDir = path.resolve(__dirname, "..");
 const rel = path.relative(pluginDir, filePath);
 
 const SKIP = [
@@ -43,19 +44,4 @@ if (
 	process.exit(0);
 }
 
-// ── Bump patch in package.json ──────────────────────────────────────────────
-const pkgPath      = path.join(pluginDir, "package.json");
-const manifestPath = path.join(pluginDir, "manifest.json");
-
-const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
-const [major, minor, patch] = pkg.version.split(".").map(Number);
-const newVersion = `${major}.${minor}.${patch + 1}`;
-pkg.version = newVersion;
-fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, "\t") + "\n");
-
-// ── Keep manifest.json in sync ──────────────────────────────────────────────
-const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-manifest.version = newVersion;
-fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, "\t") + "\n");
-
-process.stdout.write(`Plugin version bumped to ${newVersion}\n`);
+bump_patch()

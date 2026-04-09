@@ -1,6 +1,6 @@
 {
 	"name": "daylio-mood-graph",
-	"version": "1.0.4",
+	"version": "1.0.7",
 	"description": "Visualizes Daylio mood data as a color-coded graph with clickable vault event labels.",
 	"main": "main.js",
 	"type": "module",
@@ -10,7 +10,7 @@
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"test:coverage": "vitest run --coverage",
-		"install:vault": "node -e \"const fs=require('fs'),d='daylio_plugin_test_vault/.obsidian/plugins/daylio-mood-graph/';['main.js','main.js.map'].forEach(f=>fs.copyFileSync('build/'+f,d+f));['manifest.json','styles.css'].forEach(f=>fs.copyFileSync(f,d+f))\"",
+		"install:vault": "node \"scripts/build_vault.cjs\"",
 		"build:vault": "npm run build && npm run install:vault"
 	},
 	"keywords": [],

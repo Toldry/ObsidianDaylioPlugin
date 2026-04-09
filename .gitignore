@@ -24,3 +24,4 @@ daylio_plugin_test_vault/.obsidian/workspace-mobile.json
 
 # Built obsidian files
 daylio_plugin_test_vault/.obsidian/plugins/daylio-mood-graph/
+!daylio_plugin_test_vault/.obsidian/plugins/daylio-mood-graph/data.json
