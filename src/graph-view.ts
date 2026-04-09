@@ -18,6 +18,10 @@ import {
 import { parseDaylioCsv, groupByDay } from "./csv-parser";
 import { scanVaultEvents } from "./vault-scanner";
 import { buildGraphSvg, LEFT_PAD, RIGHT_PAD } from "./graph-builder";
+import {
+	computeAnchoredScroll,
+	computeIntrinsicWidth,
+} from "./scroll-math";
 
 /** Horizontal drag distance (px) above which a mouseup is treated as a pan
  *  gesture rather than a click, suppressing child click handlers. */
@@ -44,6 +48,10 @@ export class DaylioGraphView extends ItemView {
 	 *  (arriving before the RAF fires) reads the correct logical scroll
 	 *  position rather than the stale 0 left by scrollContainer.empty(). */
 	private intendedScrollLeft: number | null = null;
+	/** Left margin on the SVG element, used to achieve "negative scroll"
+	 *  when the cursor-anchored position would require scrollLeft < 0.
+	 *  Set synchronously in quickRedraw; persists until the next redraw. */
+	private intendedMarginLeft = 0;
 	/** Incremented at the start of every renderGraph() call.  Any suspended
 	 *  render that finds a newer generation has started aborts without
 	 *  writing to the DOM, preventing duplicate scroll containers (and the
@@ -94,6 +102,9 @@ export class DaylioGraphView extends ItemView {
 	async renderGraph(): Promise<void> {
 		const generation = ++this.renderGeneration;
 		log("renderGraph: starting full render (generation", generation, ")");
+		// Reset margin state — a full re-render starts with a clean SVG
+		// that has no margin-left offset.
+		this.intendedMarginLeft = 0;
 		const container = this.containerEl.children[1] as HTMLElement;
 
 		if (this.scrollContainer) {
@@ -176,7 +187,11 @@ export class DaylioGraphView extends ItemView {
 			slider.value = String(newWidth);
 			if (this.scrollContainer) {
 				const viewportX = this.scrollContainer.clientWidth / 2;
-				const svgX = this.scrollContainer.scrollLeft + viewportX;
+				const scrollLeft =
+					this.intendedScrollLeft ??
+					this.scrollContainer.scrollLeft;
+				const svgX =
+					scrollLeft + viewportX - this.intendedMarginLeft;
 				const oldBW = this.plugin.settings.barWidth;
 				this.quickRedraw(newWidth, {
 					svgX,
@@ -210,7 +225,11 @@ export class DaylioGraphView extends ItemView {
 				!this.scrollContainer
 			) return;
 			const viewportX = this.scrollContainer.clientWidth / 2;
-			const svgX = this.scrollContainer.scrollLeft + viewportX;
+			const scrollLeft =
+				this.intendedScrollLeft ??
+				this.scrollContainer.scrollLeft;
+			const svgX =
+				scrollLeft + viewportX - this.intendedMarginLeft;
 			const oldBW = this.plugin.settings.barWidth;
 			this.quickRedraw(newWidth, {
 				svgX,
@@ -240,7 +259,25 @@ export class DaylioGraphView extends ItemView {
 		labelsLabel.createSpan({ text: "Labels" });
 		labelsCheck.addEventListener("change", async () => {
 			this.plugin.settings.showEventLabels = labelsCheck.checked;
-			this.quickRedraw(this.plugin.settings.barWidth);
+			// Use anchor-based scroll preservation: only vertical content
+			// changes (label cards below the graph), so we keep the
+			// horizontal position exactly where it was.
+			if (this.scrollContainer) {
+				const viewportX = this.scrollContainer.clientWidth / 2;
+				const scrollLeft =
+					this.intendedScrollLeft ??
+					this.scrollContainer.scrollLeft;
+				const svgX =
+					scrollLeft + viewportX - this.intendedMarginLeft;
+				const bw = this.plugin.settings.barWidth;
+				this.quickRedraw(bw, {
+					svgX,
+					viewportX,
+					oldStride: bw + barGapFor(bw),
+				});
+			} else {
+				this.quickRedraw(this.plugin.settings.barWidth);
+			}
 			await this.plugin.saveSettings();
 		});
 
@@ -339,10 +376,15 @@ export class DaylioGraphView extends ItemView {
 						// scrollContainer.empty() resets scrollLeft to 0
 						// synchronously, so reading it directly before the
 						// RAF fires gives the wrong anchor position.
+						// Subtract margin to get the true SVG coordinate
+						// (margin shifts content rightward within the
+						// scroll container).
 						const currentScrollLeft =
 							this.intendedScrollLeft ??
 							this.scrollContainer!.scrollLeft;
-						const svgX = currentScrollLeft + viewportX;
+						const svgX =
+							currentScrollLeft + viewportX -
+							this.intendedMarginLeft;
 						const oldBW = this.plugin.settings.barWidth;
 						this.quickRedraw(newWidth, {
 							svgX,
@@ -462,69 +504,54 @@ export class DaylioGraphView extends ItemView {
 		},
 	): void {
 		if (!this.scrollContainer || this.cachedDays.length === 0) return;
-		// Refresh scrollRatio from the live position before replacing the SVG,
-		// so ratio-based redraws (e.g. toggling Labels) land back exactly where
-		// the user currently is rather than where the last renderGraph() left off.
-		if (!anchor) {
-			const maxScroll =
-				this.scrollContainer.scrollWidth -
-				this.scrollContainer.clientWidth;
-			if (maxScroll > 0) {
-				this.scrollRatio =
-					this.scrollContainer.scrollLeft / maxScroll;
-			}
-		}
 		log(
 			"quickRedraw:", this.plugin.settings.barWidth, "→", newWidth,
-			anchor ? "(cursor-anchored)" : "(ratio-based scroll)",
+			anchor ? "(cursor-anchored)" : "(absolute-position scroll)",
 		);
 		this.plugin.settings.barWidth = newWidth;
 		if (this.zoomSlider) {
 			this.zoomSlider.value = String(newWidth);
 		}
-		// Compute dimensions before building the SVG so we can pass minWidth.
-		// The SVG's intrinsic width matches the formula in graph-builder.ts:
-		//   graphWidth = N * stride - gap + LEFT_PAD + RIGHT_PAD
+
 		const newStride = newWidth + barGapFor(newWidth);
-		const intrinsicSvgWidth =
-			this.cachedDays.length * newStride -
-			barGapFor(newWidth) +
-			LEFT_PAD + RIGHT_PAD;
+		const intrinsicSvgWidth = computeIntrinsicWidth(
+			this.cachedDays.length,
+			newWidth,
+		);
 		const containerWidth = this.scrollContainer.clientWidth;
 
 		let neededSvgWidth: number;
 		if (anchor) {
-			// Compute the target scroll position synchronously so that any
-			// wheel event arriving before the RAF fires reads the correct
-			// logical position from intendedScrollLeft rather than the stale
-			// 0 that scrollContainer.empty() leaves behind.
-			const newSvgX =
-				LEFT_PAD +
-				(anchor.svgX - LEFT_PAD) *
-					(newStride / anchor.oldStride);
-			const rawScrollLeft = newSvgX - anchor.viewportX;
-			// Extend the SVG so it is always wide enough to accommodate the
-			// intended scroll position.  This guarantees the scrollbar is
-			// functional even when graph content would naturally fit within
-			// the viewport, eliminating the boundary-crossing anchor glitch.
+			// Delegate the scroll-position math to the pure function so it
+			// can be verified in unit tests.  The result includes the margin
+			// needed when rawScrollLeft would be negative (i.e. the target
+			// day sits right of where scrollLeft = 0 would place it).
+			const result = computeAnchoredScroll(
+				anchor,
+				newStride,
+				intrinsicSvgWidth,
+				containerWidth,
+			);
+			neededSvgWidth = result.svgWidth;
+			this.intendedScrollLeft = result.scrollLeft;
+			this.intendedMarginLeft = result.marginLeft;
+		} else {
+			// Fallback: preserve absolute scroll position (clamped to fit).
+			const savedScrollLeft = this.scrollContainer.scrollLeft;
+			this.intendedMarginLeft = 0;
 			neededSvgWidth = Math.max(
 				intrinsicSvgWidth,
-				Math.max(0, rawScrollLeft) + containerWidth,
+				savedScrollLeft + containerWidth + 1,
 			);
-			const maxScroll = neededSvgWidth - containerWidth;
-			this.intendedScrollLeft = Math.max(
-				0,
-				Math.min(maxScroll, rawScrollLeft),
-			);
-		} else {
-			// Non-anchor redraw: keep the SVG at least 1 px wider than the
-			// container so the scrollbar remains visible and functional.
-			neededSvgWidth = Math.max(intrinsicSvgWidth, containerWidth + 1);
-			this.intendedScrollLeft = null;
+			this.intendedScrollLeft = savedScrollLeft;
 		}
 
 		this.scrollContainer.empty();
-		this.scrollContainer.appendChild(this.buildSvg(newWidth, neededSvgWidth));
+		const svg = this.buildSvg(newWidth, neededSvgWidth);
+		if (this.intendedMarginLeft > 0) {
+			svg.style.marginLeft = `${this.intendedMarginLeft}px`;
+		}
+		this.scrollContainer.appendChild(svg);
 
 		if (this.scrollRafId !== null) {
 			cancelAnimationFrame(this.scrollRafId);

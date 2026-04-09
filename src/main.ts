@@ -44,6 +44,12 @@ export {
 	computeEntrySpans,
 	type EntrySpan,
 } from "./graph-builder";
+export {
+	computeAnchoredScroll,
+	computeIntrinsicWidth,
+	type AnchorParams,
+	type ScrollResult,
+} from "./scroll-math";
 
 export default class DaylioGraphPlugin extends Plugin {
 	settings: DaylioGraphSettings = DEFAULT_SETTINGS;
