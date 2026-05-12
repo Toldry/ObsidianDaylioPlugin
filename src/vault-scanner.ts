@@ -14,16 +14,16 @@ export const DATE_PREFIX_REGEX = /^(\d{4}-\d{2}-\d{2})/;
  *                If empty or omitted, the whole vault is scanned.
  */
 export function scanVaultEvents(app: App, scanDir?: string): VaultEvent[] {
-	log(
-		"scanVaultEvents: scanning",
-		scanDir ? `directory "${scanDir}"` : "whole vault",
-	);
+	// log(
+	// 	"scanVaultEvents: scanning",
+	// 	scanDir ? `directory "${scanDir}"` : "whole vault",
+	// );
 	const events: VaultEvent[] = [];
 	const prefix = scanDir ? scanDir.replace(/\/+$/, "") + "/" : null;
 	const files = app.vault.getMarkdownFiles().filter(
 		(f) => prefix === null || f.path.startsWith(prefix)
 	);
-	log("scanVaultEvents: examining", files.length, "markdown files");
+	// log("scanVaultEvents: examining", files.length, "markdown files");
 
 	for (const file of files) {
 		const dateMatch = file.basename.match(DATE_PREFIX_REGEX);
@@ -37,9 +37,9 @@ export function scanVaultEvents(app: App, scanDir?: string): VaultEvent[] {
 				: undefined;
 
 		if (label) {
-			log("scanVaultEvents: labelled entry:", dateMatch[1], "→", label);
+			// log("scanVaultEvents: labelled entry:", dateMatch[1], "→", label);
 		} else {
-			log("scanVaultEvents: unlabelled entry:", dateMatch[1]);
+			// log("scanVaultEvents: unlabelled entry:", dateMatch[1]);
 		}
 
 		events.push({
@@ -49,6 +49,6 @@ export function scanVaultEvents(app: App, scanDir?: string): VaultEvent[] {
 		});
 	}
 
-	log("scanVaultEvents: total entries found:", events.length);
+	// log("scanVaultEvents: total entries found:", events.length);
 	return events;
 }

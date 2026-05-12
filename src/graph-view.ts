@@ -76,19 +76,19 @@ export class DaylioGraphView extends ItemView {
 	}
 
 	async onOpen(): Promise<void> {
-		log("view opened");
+		// log("view opened");
 		await this.renderGraph();
 	}
 
 	async onClose(): Promise<void> {
-		log("view closed");
+		// log("view closed");
 		clearTimeout(this.zoomDebounceTimer);
 		this.containerEl.empty();
 	}
 
 	/** Open a vault file by path, with error notice on failure. */
 	private openFile(filePath: string): void {
-		log("opening file:", filePath);
+		// log("opening file:", filePath);
 		const target = this.app.vault.getAbstractFileByPath(filePath);
 		if (target instanceof TFile) {
 			this.app.workspace.getLeaf(false).openFile(target);
@@ -101,7 +101,7 @@ export class DaylioGraphView extends ItemView {
 	/** Full re-render — called on open and when settings change. */
 	async renderGraph(): Promise<void> {
 		const generation = ++this.renderGeneration;
-		log("renderGraph: starting full render (generation", generation, ")");
+		// log("renderGraph: starting full render (generation", generation, ")");
 		// Reset margin state — a full re-render starts with a clean SVG
 		// that has no margin-left offset.
 		this.intendedMarginLeft = 0;
@@ -123,18 +123,18 @@ export class DaylioGraphView extends ItemView {
 		// ── Load CSV ────────────────────────────────────────────
 		const csvPath = this.plugin.settings.csvPath;
 		if (!csvPath) {
-			log("renderGraph: no CSV path configured");
+			// log("renderGraph: no CSV path configured");
 			container.createEl("p", {
 				text: "No CSV path configured. Open the Daylio Mood Graph settings to set the path to your Daylio export.",
 				cls: "daylio-graph-notice",
 			});
 			return;
 		}
-		log("renderGraph: CSV path is", csvPath);
+		// log("renderGraph: CSV path is", csvPath);
 
 		const csvFile = this.app.vault.getAbstractFileByPath(csvPath);
 		if (!(csvFile instanceof TFile)) {
-			log("renderGraph: CSV file not found at path:", csvPath);
+			// log("renderGraph: CSV file not found at path:", csvPath);
 			container.createEl("p", {
 				text: `CSV file not found at "${csvPath}". Check the path in settings.`,
 				cls: "daylio-graph-notice",
@@ -145,7 +145,7 @@ export class DaylioGraphView extends ItemView {
 		let csvText: string;
 		try {
 			csvText = await this.app.vault.read(csvFile);
-			log("renderGraph: CSV read successfully,", csvText.length, "chars");
+			// log("renderGraph: CSV read successfully,", csvText.length, "chars");
 		} catch (error) {
 			console.warn("[daylio] renderGraph: failed to read CSV:", error);
 			container.createEl("p", {
@@ -160,13 +160,13 @@ export class DaylioGraphView extends ItemView {
 		// render wins and we never end up with duplicate scroll containers
 		// (and their duplicate wheel listeners).
 		if (generation !== this.renderGeneration) {
-			log("renderGraph: stale generation", generation, "— aborting");
+			// log("renderGraph: stale generation", generation, "— aborting");
 			return;
 		}
 
 		const allEntries = parseDaylioCsv(csvText);
 		if (allEntries.length === 0) {
-			log("renderGraph: no valid mood entries found in CSV");
+			// log("renderGraph: no valid mood entries found in CSV");
 			container.createEl("p", {
 				text: "No valid mood entries found in the CSV.",
 				cls: "daylio-graph-notice",
@@ -303,10 +303,10 @@ export class DaylioGraphView extends ItemView {
 			this.plugin.settings.eventScanDir || undefined,
 		);
 		this.cachedDays = groupByDay(allEntries);
-		log(
-			"renderGraph: cached", this.cachedDays.length, "days and",
-			this.cachedVaultEvents.length, "vault events",
-		);
+		// log(
+		// 	"renderGraph: cached", this.cachedDays.length, "days and",
+		// 	this.cachedVaultEvents.length, "vault events",
+		// );
 
 		// ── Mood legend ─────────────────────────────────────────
 		const legend = container.createDiv({ cls: "daylio-graph-legend" });
@@ -504,10 +504,10 @@ export class DaylioGraphView extends ItemView {
 		},
 	): void {
 		if (!this.scrollContainer || this.cachedDays.length === 0) return;
-		log(
-			"quickRedraw:", this.plugin.settings.barWidth, "→", newWidth,
-			anchor ? "(cursor-anchored)" : "(absolute-position scroll)",
-		);
+		// log(
+		// 	"quickRedraw:", this.plugin.settings.barWidth, "→", newWidth,
+		// 	anchor ? "(cursor-anchored)" : "(absolute-position scroll)",
+		// );
 		this.plugin.settings.barWidth = newWidth;
 		if (this.zoomSlider) {
 			this.zoomSlider.value = String(newWidth);

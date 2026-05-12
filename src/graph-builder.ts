@@ -141,11 +141,11 @@ export function computeEntrySpans(
 		}
 	}
 
-	log(
-		"computeEntrySpans:",
-		spans.length, "span(s) from",
-		vaultEvents.length, "vault entr(ies)",
-	);
+	// log(
+	// 	"computeEntrySpans:",
+	// 	spans.length, "span(s) from",
+	// 	vaultEvents.length, "vault entr(ies)",
+	// );
 	return spans;
 }
 
@@ -179,11 +179,11 @@ export function buildGraphSvg(
 	vaultEvents: VaultEvent[],
 	ctx: GraphBuildContext,
 ): SVGSVGElement {
-	log(
-		"buildGraphSvg: barWidth =", barWidth,
-		", days =", days.length,
-		", events =", vaultEvents.length,
-	);
+	// log(
+	// 	"buildGraphSvg: barWidth =", barWidth,
+	// 	", days =", days.length,
+	// 	", events =", vaultEvents.length,
+	// );
 	const buildStart = performance.now();
 	const BAR_WIDTH = barWidth;
 	const BAR_GAP = barGapFor(barWidth);
@@ -628,11 +628,11 @@ export function buildGraphSvg(
 		svg.appendChild(g);
 	}
 
-	log(
-		"buildGraphSvg: SVG dimensions",
-		graphWidth, "×", totalHeight,
-		"px,", rowTopY.length, "event label row(s),",
-		(performance.now() - buildStart).toFixed(2), "ms",
-	);
+	// log(
+	// 	"buildGraphSvg: SVG dimensions",
+	// 	graphWidth, "×", totalHeight,
+	// 	"px,", rowTopY.length, "event label row(s),",
+	// 	(performance.now() - buildStart).toFixed(2), "ms",
+	// );
 	return svg;
 }

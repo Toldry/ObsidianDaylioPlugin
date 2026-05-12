@@ -55,9 +55,9 @@ export default class DaylioGraphPlugin extends Plugin {
 	settings: DaylioGraphSettings = DEFAULT_SETTINGS;
 
 	async onload(): Promise<void> {
-		log("plugin loading");
+		// log("plugin loading");
 		await this.loadSettings();
-		log("settings loaded:", this.settings);
+		// log("settings loaded:", this.settings);
 
 		this.registerView(VIEW_TYPE_DAYLIO, (leaf) => {
 			return new DaylioGraphView(leaf, this);
@@ -76,17 +76,17 @@ export default class DaylioGraphPlugin extends Plugin {
 		});
 
 		this.addSettingTab(new DaylioSettingTab(this.app, this));
-		log("plugin ready");
+		// log("plugin ready");
 	}
 
 	onunload(): void {
-		log("plugin unloading");
+		// log("plugin unloading");
 		this.app.workspace.detachLeavesOfType(VIEW_TYPE_DAYLIO);
 	}
 
 	async loadSettings(): Promise<void> {
 		const loaded = await this.loadData();
-		log("raw data from storage:", loaded);
+		// log("raw data from storage:", loaded);
 		this.settings = Object.assign(
 			{},
 			DEFAULT_SETTINGS,
@@ -98,11 +98,11 @@ export default class DaylioGraphPlugin extends Plugin {
 					DEFAULT_MOOD_COLORS[mood];
 			}
 		}
-		log("settings after merge:", this.settings);
+		// log("settings after merge:", this.settings);
 	}
 
 	async saveSettings(): Promise<void> {
-		log("saving settings:", this.settings);
+		// log("saving settings:", this.settings);
 		await this.saveData(this.settings);
 	}
 
@@ -111,10 +111,10 @@ export default class DaylioGraphPlugin extends Plugin {
 
 		let leaf = workspace.getLeavesOfType(VIEW_TYPE_DAYLIO)[0];
 		if (!leaf) {
-			log("no existing view leaf; opening in horizontal split");
+			// log("no existing view leaf; opening in horizontal split");
 			const newLeaf = workspace.getLeaf("split", "horizontal");
 			if (!newLeaf) {
-				log("could not obtain a leaf; aborting");
+				// log("could not obtain a leaf; aborting");
 				return;
 			}
 			await newLeaf.setViewState({
@@ -126,7 +126,7 @@ export default class DaylioGraphPlugin extends Plugin {
 			// The leaf survived (sidebar collapsed, tab hidden, etc.) so
 			// onOpen won't fire again — manually re-render so the view
 			// reflects any settings changes made since it was last visible.
-			log("reusing existing view leaf; re-rendering graph");
+			// log("reusing existing view leaf; re-rendering graph");
 			if (leaf.view instanceof DaylioGraphView) {
 				await leaf.view.renderGraph();
 			}

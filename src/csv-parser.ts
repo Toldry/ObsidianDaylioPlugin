@@ -11,9 +11,9 @@ import log from "./log";
  */
 export function parseDaylioCsv(raw: string): MoodEntry[] {
 	const lines = raw.split(/\r?\n/).filter((line) => line.trim() !== "");
-	log("parseDaylioCsv: non-empty lines (including header):", lines.length);
+	// log("parseDaylioCsv: non-empty lines (including header):", lines.length);
 	if (lines.length < 2) {
-		log("parseDaylioCsv: too few lines, returning empty array");
+		// log("parseDaylioCsv: too few lines, returning empty array");
 		return [];
 	}
 
@@ -32,10 +32,10 @@ export function parseDaylioCsv(raw: string): MoodEntry[] {
 
 		entries.push({ date: fullDate, time, mood: moodRaw });
 	}
-	log(
-		"parseDaylioCsv: parsed", entries.length, "entries,",
-		skippedRows, "data rows skipped (missing date or unrecognised mood)",
-	);
+	// log(
+	// 	"parseDaylioCsv: parsed", entries.length, "entries,",
+	// 	skippedRows, "data rows skipped (missing date or unrecognised mood)",
+	// );
 	return entries;
 }
 
@@ -85,7 +85,7 @@ export function isMoodLevel(value: string): value is MoodLevel {
  * Within each day, entries are sorted by time ascending.
  */
 export function groupByDay(entries: MoodEntry[]): DayData[] {
-	log("groupByDay: grouping", entries.length, "entries");
+	// log("groupByDay: grouping", entries.length, "entries");
 	const map = new Map<string, MoodEntry[]>();
 	for (const entry of entries) {
 		const existing = map.get(entry.date);
@@ -103,6 +103,6 @@ export function groupByDay(entries: MoodEntry[]): DayData[] {
 	}
 
 	days.sort((a, b) => a.date.localeCompare(b.date));
-	log("groupByDay: result is", days.length, "unique days");
+	// log("groupByDay: result is", days.length, "unique days");
 	return days;
 }
