@@ -1,5 +1,4 @@
-import { App, PluginSettingTab, Setting, normalizePath } from "obsidian";
-import log from "./log";
+import { App, Plugin, PluginSettingTab, Setting, normalizePath } from "obsidian";
 import {
 	MOOD_LEVELS,
 	DEFAULT_MOOD_COLORS,
@@ -10,17 +9,14 @@ import { DATE_PREFIX_REGEX } from "./vault-scanner";
 export class DaylioSettingTab extends PluginSettingTab {
 	plugin: HasDaylioSettings;
 
-	constructor(app: App, plugin: HasDaylioSettings & { app: App }) {
-		super(app, plugin as any);
+	constructor(app: App, plugin: Plugin & HasDaylioSettings) {
+		super(app, plugin);
 		this.plugin = plugin;
 	}
 
 	display(): void {
-		// log("settings tab displayed");
 		const { containerEl } = this;
 		containerEl.empty();
-
-		// containerEl.createEl("h2", { text: "Daylio Mood Graph Settings" });
 
 		// ── CSV file picker ─────────────────────────────────────
 		const csvFiles = this.app.vault
@@ -58,7 +54,6 @@ export class DaylioSettingTab extends PluginSettingTab {
 				dropdown
 					.setValue(currentPath)
 					.onChange(async (value) => {
-						// log("CSV path changed to:", value || "(none)");
 						this.plugin.settings.csvPath = value;
 						await this.plugin.saveSettings();
 					});
@@ -88,10 +83,6 @@ export class DaylioSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.eventScanDir)
 					.onChange(async (value) => {
 						const trimmed = normalizePath(value.trim());
-						// log(
-						// 	"event scan directory changed to:",
-						// 	trimmed || "(whole vault)",
-						// );
 						this.plugin.settings.eventScanDir = trimmed;
 						await this.plugin.saveSettings();
 						scanDirSetting.setDesc(scanDirDesc(value));
@@ -109,13 +100,12 @@ export class DaylioSettingTab extends PluginSettingTab {
 				toggle
 					.setValue(this.plugin.settings.showEventLabels)
 					.onChange(async (value) => {
-						// log("showEventLabels changed to:", value);
 						this.plugin.settings.showEventLabels = value;
 						await this.plugin.saveSettings();
 					}),
 			);
 
-		new Setting(containerEl).setName('Mood Colours').setHeading();
+		new Setting(containerEl).setName("Mood colours").setHeading();
 
 		for (const mood of MOOD_LEVELS) {
 			new Setting(containerEl)
@@ -124,7 +114,6 @@ export class DaylioSettingTab extends PluginSettingTab {
 					picker
 						.setValue(this.plugin.settings.moodColors[mood])
 						.onChange(async (value) => {
-							// log("mood color changed:", mood, "→", value);
 							this.plugin.settings.moodColors[mood] = value;
 							await this.plugin.saveSettings();
 						}),
@@ -135,7 +124,6 @@ export class DaylioSettingTab extends PluginSettingTab {
 			.setName("Reset colours to defaults")
 			.addButton((btn) =>
 				btn.setButtonText("Reset").onClick(async () => {
-					// log("resetting mood colors to defaults");
 					this.plugin.settings.moodColors = {
 						...DEFAULT_MOOD_COLORS,
 					};

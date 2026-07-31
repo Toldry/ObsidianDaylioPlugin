@@ -8,7 +8,6 @@ import {
 	type DayData,
 	type VaultEvent,
 } from "./types";
-import log from "./log";
 
 // ─── Layout constants ───────────────────────────────────────────────
 
@@ -179,12 +178,6 @@ export function buildGraphSvg(
 	vaultEvents: VaultEvent[],
 	ctx: GraphBuildContext,
 ): SVGSVGElement {
-	// log(
-	// 	"buildGraphSvg: barWidth =", barWidth,
-	// 	", days =", days.length,
-	// 	", events =", vaultEvents.length,
-	// );
-	const buildStart = performance.now();
 	const BAR_WIDTH = barWidth;
 	const BAR_GAP = barGapFor(barWidth);
 	const stride = BAR_WIDTH + BAR_GAP;

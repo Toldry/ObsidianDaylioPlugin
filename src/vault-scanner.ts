@@ -1,6 +1,5 @@
-import { App, TFile } from "obsidian";
+import { App } from "obsidian";
 import type { VaultEvent } from "./types";
-import log from "./log";
 
 export const DATE_PREFIX_REGEX = /^(\d{4}-\d{2}-\d{2})/;
 

@@ -1,5 +1,4 @@
 import { MOOD_LEVELS, type MoodLevel, type MoodEntry, type DayData } from "./types";
-import log from "./log";
 
 /**
  * Parse a Daylio CSV export into an array of MoodEntry objects.
@@ -11,14 +10,11 @@ import log from "./log";
  */
 export function parseDaylioCsv(raw: string): MoodEntry[] {
 	const lines = raw.split(/\r?\n/).filter((line) => line.trim() !== "");
-	// log("parseDaylioCsv: non-empty lines (including header):", lines.length);
 	if (lines.length < 2) {
-		// log("parseDaylioCsv: too few lines, returning empty array");
 		return [];
 	}
 
 	const entries: MoodEntry[] = [];
-	let skippedRows = 0;
 	for (let i = 1; i < lines.length; i++) {
 		const fields = parseCsvLine(lines[i] ?? "");
 		const fullDate = fields[0]?.trim();
@@ -26,16 +22,11 @@ export function parseDaylioCsv(raw: string): MoodEntry[] {
 		const moodRaw = fields[4]?.trim().toLowerCase() ?? "";
 
 		if (!fullDate || !isMoodLevel(moodRaw)) {
-			skippedRows++;
 			continue;
 		}
 
 		entries.push({ date: fullDate, time, mood: moodRaw });
 	}
-	// log(
-	// 	"parseDaylioCsv: parsed", entries.length, "entries,",
-	// 	skippedRows, "data rows skipped (missing date or unrecognised mood)",
-	// );
 	return entries;
 }
 

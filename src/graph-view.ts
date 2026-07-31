@@ -1,5 +1,4 @@
 import { App, ItemView, Notice, TFile, WorkspaceLeaf } from "obsidian";
-import log from "./log";
 import {
 	MOOD_LEVELS,
 	VIEW_TYPE_DAYLIO,
@@ -17,7 +16,7 @@ import {
 } from "./types";
 import { parseDaylioCsv, groupByDay } from "./csv-parser";
 import { scanVaultEvents } from "./vault-scanner";
-import { buildGraphSvg, LEFT_PAD, RIGHT_PAD } from "./graph-builder";
+import { buildGraphSvg } from "./graph-builder";
 import {
 	computeAnchoredScroll,
 	computeIntrinsicWidth,
@@ -68,7 +67,7 @@ export class DaylioGraphView extends ItemView {
 	}
 
 	getDisplayText(): string {
-		return "Daylio Mood Graph";
+		return "Daylio mood graph";
 	}
 
 	getIcon(): string {
@@ -76,22 +75,20 @@ export class DaylioGraphView extends ItemView {
 	}
 
 	async onOpen(): Promise<void> {
-		// log("view opened");
 		await this.renderGraph();
 	}
 
-	async onClose(): Promise<void> {
-		// log("view closed");
+	onClose(): Promise<void> {
 		clearTimeout(this.zoomDebounceTimer);
 		this.containerEl.empty();
+		return Promise.resolve();
 	}
 
 	/** Open a vault file by path, with error notice on failure. */
 	private openFile(filePath: string): void {
-		// log("opening file:", filePath);
 		const target = this.app.vault.getAbstractFileByPath(filePath);
 		if (target instanceof TFile) {
-			this.app.workspace.getLeaf(false).openFile(target);
+			void this.app.workspace.getLeaf(false).openFile(target);
 		} else {
 			console.warn("[daylio] file not found in vault:", filePath);
 			new Notice(`Could not find note: ${filePath}`);
@@ -101,7 +98,6 @@ export class DaylioGraphView extends ItemView {
 	/** Full re-render — called on open and when settings change. */
 	async renderGraph(): Promise<void> {
 		const generation = ++this.renderGeneration;
-		// log("renderGraph: starting full render (generation", generation, ")");
 		// Reset margin state — a full re-render starts with a clean SVG
 		// that has no margin-left offset.
 		this.intendedMarginLeft = 0;
@@ -123,18 +119,15 @@ export class DaylioGraphView extends ItemView {
 		// ── Load CSV ────────────────────────────────────────────
 		const csvPath = this.plugin.settings.csvPath;
 		if (!csvPath) {
-			// log("renderGraph: no CSV path configured");
 			container.createEl("p", {
-				text: "No CSV path configured. Open the Daylio Mood Graph settings to set the path to your Daylio export.",
+				text: "No CSV path configured. Open the Daylio mood graph settings to set the path to your Daylio export.",
 				cls: "daylio-graph-notice",
 			});
 			return;
 		}
-		// log("renderGraph: CSV path is", csvPath);
 
 		const csvFile = this.app.vault.getAbstractFileByPath(csvPath);
 		if (!(csvFile instanceof TFile)) {
-			// log("renderGraph: CSV file not found at path:", csvPath);
 			container.createEl("p", {
 				text: `CSV file not found at "${csvPath}". Check the path in settings.`,
 				cls: "daylio-graph-notice",
@@ -145,7 +138,6 @@ export class DaylioGraphView extends ItemView {
 		let csvText: string;
 		try {
 			csvText = await this.app.vault.read(csvFile);
-			// log("renderGraph: CSV read successfully,", csvText.length, "chars");
 		} catch (error) {
 			console.warn("[daylio] renderGraph: failed to read CSV:", error);
 			container.createEl("p", {
@@ -160,13 +152,11 @@ export class DaylioGraphView extends ItemView {
 		// render wins and we never end up with duplicate scroll containers
 		// (and their duplicate wheel listeners).
 		if (generation !== this.renderGeneration) {
-			// log("renderGraph: stale generation", generation, "— aborting");
 			return;
 		}
 
 		const allEntries = parseDaylioCsv(csvText);
 		if (allEntries.length === 0) {
-			// log("renderGraph: no valid mood entries found in CSV");
 			container.createEl("p", {
 				text: "No valid mood entries found in the CSV.",
 				cls: "daylio-graph-notice",
@@ -209,7 +199,7 @@ export class DaylioGraphView extends ItemView {
 		minusBtn.setAttribute("aria-label", "Zoom out");
 		minusBtn.addEventListener("click", () => stepZoom(-BAR_WIDTH_STEP));
 
-		const slider = toolbar.createEl("input") as HTMLInputElement;
+		const slider = toolbar.createEl("input");
 		slider.type = "range";
 		slider.min = String(BAR_WIDTH_MIN);
 		slider.max = String(BAR_WIDTH_MAX);
@@ -238,8 +228,8 @@ export class DaylioGraphView extends ItemView {
 			});
 		});
 
-		slider.addEventListener("change", async () => {
-			await this.plugin.saveSettings();
+		slider.addEventListener("change", () => {
+			void this.plugin.saveSettings();
 		});
 
 		const plusBtn = toolbar.createEl("button", {
@@ -253,11 +243,11 @@ export class DaylioGraphView extends ItemView {
 		const labelsLabel = toolbar.createEl("label", {
 			cls: "daylio-labels-toggle",
 		});
-		const labelsCheck = labelsLabel.createEl("input") as HTMLInputElement;
+		const labelsCheck = labelsLabel.createEl("input");
 		labelsCheck.type = "checkbox";
 		labelsCheck.checked = this.plugin.settings.showEventLabels;
 		labelsLabel.createSpan({ text: "Labels" });
-		labelsCheck.addEventListener("change", async () => {
+		labelsCheck.addEventListener("change", () => {
 			this.plugin.settings.showEventLabels = labelsCheck.checked;
 			// Use anchor-based scroll preservation: only vertical content
 			// changes (label cards below the graph), so we keep the
@@ -278,7 +268,7 @@ export class DaylioGraphView extends ItemView {
 			} else {
 				this.quickRedraw(this.plugin.settings.barWidth);
 			}
-			await this.plugin.saveSettings();
+			void this.plugin.saveSettings();
 		});
 
 		// ── Refresh button ───────────────────────────────────────
@@ -303,10 +293,6 @@ export class DaylioGraphView extends ItemView {
 			this.plugin.settings.eventScanDir || undefined,
 		);
 		this.cachedDays = groupByDay(allEntries);
-		// log(
-		// 	"renderGraph: cached", this.cachedDays.length, "days and",
-		// 	this.cachedVaultEvents.length, "vault events",
-		// );
 
 		// ── Mood legend ─────────────────────────────────────────
 		const legend = container.createDiv({ cls: "daylio-graph-legend" });
@@ -372,13 +358,6 @@ export class DaylioGraphView extends ItemView {
 						const rect =
 							this.scrollContainer!.getBoundingClientRect();
 						const viewportX = evt.clientX - rect.left;
-						// Use intendedScrollLeft when a RAF is pending:
-						// scrollContainer.empty() resets scrollLeft to 0
-						// synchronously, so reading it directly before the
-						// RAF fires gives the wrong anchor position.
-						// Subtract margin to get the true SVG coordinate
-						// (margin shifts content rightward within the
-						// scroll container).
 						const currentScrollLeft =
 							this.intendedScrollLeft ??
 							this.scrollContainer!.scrollLeft;
@@ -392,8 +371,8 @@ export class DaylioGraphView extends ItemView {
 							oldStride: oldBW + barGapFor(oldBW),
 						});
 						clearTimeout(this.zoomDebounceTimer);
-						this.zoomDebounceTimer = setTimeout(async () => {
-							await this.plugin.saveSettings();
+						this.zoomDebounceTimer = setTimeout(() => {
+							void this.plugin.saveSettings();
 						}, SAVE_DEBOUNCE_MS);
 					}
 				} else {
