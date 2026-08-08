@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeEntrySpans, type EntrySpan } from "../../src/main";
+import { computeEntrySpans, packRangeEventsIntoTracks, type EntrySpan } from "../../src/main";
 import type { DayData, VaultEvent } from "../../src/main";
 
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -157,3 +157,32 @@ describe("computeEntrySpans", () => {
 		expect(spanDates(result[1]!, d)).toEqual(["2024-03-22"]);
 	});
 });
+
+describe("packRangeEventsIntoTracks", () => {
+	it("packs non-overlapping range events into track 0", () => {
+		const d = days("2024-08-01", "2024-08-02", "2024-08-03", "2024-08-04", "2024-08-05");
+		const events: VaultEvent[] = [
+			{ date: "2024-08-01", endDate: "2024-08-02", isRange: true, label: "Trip 1", filePath: "1.md" },
+			{ date: "2024-08-03", endDate: "2024-08-05", isRange: true, label: "Trip 2", filePath: "2.md" },
+		];
+		const { spans, trackCount } = packRangeEventsIntoTracks(events, d);
+		expect(trackCount).toBe(1);
+		expect(spans).toHaveLength(2);
+		expect(spans[0]?.trackIdx).toBe(0);
+		expect(spans[1]?.trackIdx).toBe(0);
+	});
+
+	it("packs overlapping range events into separate tracks", () => {
+		const d = days("2024-08-01", "2024-08-02", "2024-08-03", "2024-08-04", "2024-08-05");
+		const events: VaultEvent[] = [
+			{ date: "2024-08-01", endDate: "2024-08-04", isRange: true, label: "Big Trip", filePath: "1.md" },
+			{ date: "2024-08-02", endDate: "2024-08-03", isRange: true, label: "Nested Offsite", filePath: "2.md" },
+		];
+		const { spans, trackCount } = packRangeEventsIntoTracks(events, d);
+		expect(trackCount).toBe(2);
+		expect(spans).toHaveLength(2);
+		expect(spans[0]?.trackIdx).toBe(0);
+		expect(spans[1]?.trackIdx).toBe(1);
+	});
+});
+

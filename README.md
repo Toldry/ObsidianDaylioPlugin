@@ -1,8 +1,15 @@
 # Daylio Mood Graph — Obsidian Plugin
 
+[![Download Demo Vault](https://img.shields.io/badge/Demo_Vault-Download_Example_Vault-purple?style=for-the-badge&logo=obsidian)](../../releases/latest)
+
 Renders your [Daylio](https://daylio.app) mood history as a colour-coded
 graph inside Obsidian. Notes in your vault can annotate the graph with
 labelled, clickable markers at the dates they correspond to.
+
+## Quick Start / Demo Vault
+
+Want to try out the plugin with pre-populated sample data?
+Download the **[Example Vault Zip](../../releases/latest)**, extract it, and open it in Obsidian to see a working graph with sample entries and event annotations out of the box!
 
 ## What it looks like
 
@@ -15,7 +22,7 @@ The graph scrolls horizontally and defaults to showing the most recent data.
 
 ![](plugin_screenshot.png)
 
-Vault events appear as small labelled cards below the graph, connected to
+Vault events appear as small labelled cards below the graph (or horizontal swimlane bars for range events), connected to
 their date by a dashed connector line. Clicking a card opens the
 corresponding note. Hovering over a day column shows the date; hovering
 over an event's range highlights the full period that event spans.
@@ -57,7 +64,7 @@ attachments/daylio_export.csv
 ### 3. Open the graph
 
 Click the smiley-face icon in the left ribbon, or run the command
-**Daylio Mood Graph: Open Daylio Mood Graph** from the command palette
+**Daylio Mood Graph: Open mood graph** from the command palette
 (Ctrl+P / Cmd+P).
 
 The graph opens as a horizontal split pane below the current editor.
@@ -81,17 +88,51 @@ the header readable.
 
 ## Annotating the graph with vault events
 
-Any note whose filename begins with a `YYYY-MM-DD` date can place a labelled
-marker on the graph for that date. Add a `daylio_event` field to the note's
-YAML frontmatter:
+Vault notes can annotate the graph in two ways: **Point Events** (single-date milestones) and **Range Events** (multi-day timeline spans).
+
+### 1. Point Events (Single-Date Milestones)
+
+Add a `daylio_event` field to the frontmatter of any note whose filename starts with `YYYY-MM-DD`:
 
 ```yaml
 ---
 daylio_event: "Began university"
 ---
-
-First day of term. The campus is larger than expected...
 ```
+
+You can also specify multiple point events in a single note using Obsidian's native List property:
+
+```yaml
+---
+daylio_event:
+  - "Got a cat"
+  - "Got a dog"
+---
+```
+
+### 2. Range Events (Multi-Day Timeline Spans / Gantt Swimlanes)
+
+For multi-day events that span across a date range ($T_{\text{start}} \rightarrow T_{\text{end}}$), use any of these natural formats:
+
+#### Option A: Native Properties UI (`daylio_end`)
+```yaml
+---
+daylio_event: Summer Vacation
+daylio_end: 2024-08-28
+---
+```
+*(Uses Obsidian's native Date picker for `daylio_end`. The start date defaults to the note's filename date prefix or `daylio_start`.)*
+
+#### Option B: Inline Pipe Syntax in Properties List
+```yaml
+---
+daylio_event:
+  - Got a cat
+  - Summer Vacation | 2024-08-12 -> 2024-08-28
+---
+```
+
+Range Events render as horizontal swimlane pill bars below the mood graph. Overlapping events are automatically organized into separate non-overlapping tracks. Clicking any pill opens the corresponding note!
 
 The plugin reads frontmatter through Obsidian's metadata cache — it never
 needs to open your notes — so scanning is fast regardless of vault size.

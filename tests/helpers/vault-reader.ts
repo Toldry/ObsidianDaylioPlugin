@@ -30,24 +30,44 @@ const DATE_PREFIX_RE = /^(\d{4}-\d{2}-\d{2})/;
  */
 export function parseFrontmatter(
 	content: string
-): Record<string, string> | null {
+): Record<string, string | string[]> | null {
 	const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 	if (!match?.[1]) return null;
 
-	const result: Record<string, string> = {};
+	const result: Record<string, string | string[]> = {};
+	let currentKey = "";
+
 	for (const rawLine of match[1].split(/\r?\n/)) {
+		const trimmedLine = rawLine.trim();
+		if (!trimmedLine) continue;
+
+		if (trimmedLine.startsWith("- ") && currentKey) {
+			let itemVal = trimmedLine.slice(2).trim();
+			if (itemVal.startsWith('"') && itemVal.endsWith('"')) {
+				itemVal = itemVal.slice(1, -1).replace(/""/g, '"');
+			}
+			const existing = result[currentKey];
+			if (Array.isArray(existing)) {
+				existing.push(itemVal);
+			} else {
+				result[currentKey] = [itemVal];
+			}
+			continue;
+		}
+
 		const colonIdx = rawLine.indexOf(":");
 		if (colonIdx === -1) continue;
 
 		const key = rawLine.slice(0, colonIdx).trim();
 		let value = rawLine.slice(colonIdx + 1).trim();
+		currentKey = key;
 
-		// Strip surrounding double-quotes (YAML bare strings need none).
-		if (value.startsWith('"') && value.endsWith('"')) {
-			value = value.slice(1, -1).replace(/""/g, '"');
+		if (value) {
+			if (value.startsWith('"') && value.endsWith('"')) {
+				value = value.slice(1, -1).replace(/""/g, '"');
+			}
+			result[key] = value;
 		}
-
-		result[key] = value;
 	}
 	return Object.keys(result).length > 0 ? result : null;
 }
@@ -81,17 +101,37 @@ export function readVaultEventsFromDisk(
 		const content = fs.readFileSync(filePath, "utf8");
 		const frontmatter = parseFrontmatter(content);
 
-		const eventValue = frontmatter?.["daylio_event"];
-		const label =
-			typeof eventValue === "string" && eventValue.trim()
-				? eventValue.trim()
-				: undefined;
+		const rawItems: string[] = [];
+		const collectItems = (val: unknown): void => {
+			if (typeof val === "string" && val.trim()) {
+				rawItems.push(val.trim());
+			} else if (Array.isArray(val)) {
+				for (const item of val) {
+					if (typeof item === "string" && item.trim()) {
+						rawItems.push(item.trim());
+					}
+				}
+			}
+		};
 
-		events.push({
-			date: dateMatch[1],
-			label,
-			filePath,
-		});
+		collectItems(frontmatter?.["daylio_event"]);
+		collectItems(frontmatter?.["daylio_events"]);
+
+		if (rawItems.length === 0) {
+			events.push({
+				date: dateMatch[1],
+				filePath,
+			});
+		} else {
+			for (const item of rawItems) {
+				const label = item.includes("|") ? item.split("|")[0]?.trim() : item;
+				events.push({
+					date: dateMatch[1],
+					label,
+					filePath,
+				});
+			}
+		}
 	}
 
 	return events;

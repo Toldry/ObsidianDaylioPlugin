@@ -38,9 +38,11 @@ export interface DayData {
  * but do not display a text label.
  */
 export interface VaultEvent {
-	date: string;       // "YYYY-MM-DD"
+	date: string;       // "YYYY-MM-DD" (start date or point event date)
+	endDate?: string;   // "YYYY-MM-DD" (set when event spans across a date range)
 	label?: string;     // only set when daylio_event frontmatter is present
 	filePath: string;   // path inside vault so we can navigate to it
+	isRange?: boolean;  // true when endDate is present and endDate >= date
 }
 
 // ─── Default colours (matching the Daylio palette) ──────────────────

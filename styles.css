@@ -297,3 +297,35 @@
 	background: var(--background-modifier-hover);
 	text-decoration: underline;
 }
+
+/* ── Range Event Swimlane Pills ────────────────────────────── */
+
+.daylio-range-pill-group {
+	cursor: pointer;
+}
+
+.daylio-range-pill {
+	fill: var(--interactive-accent);
+	fill-opacity: 0.25;
+	stroke: var(--interactive-accent);
+	stroke-width: 1;
+	rx: 4px;
+	ry: 4px;
+	transition: fill-opacity 0.15s, stroke-width 0.15s;
+}
+
+.daylio-range-pill-group:hover .daylio-range-pill {
+	fill-opacity: 0.45;
+	stroke-width: 1.5;
+}
+
+.daylio-range-pill-text {
+	font-size: 10px;
+	line-height: 16px;
+	color: var(--text-normal);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	padding: 0 6px;
+	user-select: none;
+}

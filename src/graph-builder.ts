@@ -161,6 +161,80 @@ export interface GraphBuildContext {
 	minWidth?: number;
 }
 
+export interface RangeTrackSpan {
+	event: VaultEvent;
+	startIdx: number;
+	endIdx: number;
+	trackIdx: number;
+}
+
+/**
+ * Greedily pack range events into non-overlapping horizontal tracks (swimlanes).
+ */
+export function packRangeEventsIntoTracks(
+	vaultEvents: VaultEvent[],
+	days: DayData[],
+): { spans: RangeTrackSpan[]; trackCount: number } {
+	if (days.length === 0) return { spans: [], trackCount: 0 };
+
+	const dateIdxMap = new Map<string, number>();
+	for (let i = 0; i < days.length; i++) {
+		const d = days[i];
+		if (d) dateIdxMap.set(d.date, i);
+	}
+
+	const validSpans: { event: VaultEvent; startIdx: number; endIdx: number }[] = [];
+
+	for (const ev of vaultEvents) {
+		if (!ev.isRange || !ev.label || !ev.endDate) continue;
+		const startIdx = dateIdxMap.get(ev.date);
+		if (startIdx === undefined) continue;
+
+		let endIdx = dateIdxMap.get(ev.endDate);
+		if (endIdx === undefined) {
+			const lastDay = days[days.length - 1];
+			if (lastDay && ev.endDate >= lastDay.date) {
+				endIdx = days.length - 1;
+			} else {
+				continue;
+			}
+		}
+
+		if (endIdx >= startIdx) {
+			validSpans.push({ event: ev, startIdx, endIdx });
+		}
+	}
+
+	validSpans.sort((a, b) => a.startIdx - b.startIdx || b.endIdx - a.endIdx);
+
+	const trackLastEndIdx: number[] = [];
+	const spans: RangeTrackSpan[] = [];
+
+	for (const item of validSpans) {
+		let assignedTrack = -1;
+		for (let t = 0; t < trackLastEndIdx.length; t++) {
+			const lastEnd = trackLastEndIdx[t] ?? -1;
+			if (lastEnd < item.startIdx) {
+				assignedTrack = t;
+				trackLastEndIdx[t] = item.endIdx;
+				break;
+			}
+		}
+		if (assignedTrack === -1) {
+			assignedTrack = trackLastEndIdx.length;
+			trackLastEndIdx.push(item.endIdx);
+		}
+		spans.push({
+			event: item.event,
+			startIdx: item.startIdx,
+			endIdx: item.endIdx,
+			trackIdx: assignedTrack,
+		});
+	}
+
+	return { spans, trackCount: trackLastEndIdx.length };
+}
+
 /**
  * Build the mood-history SVG.  Pure synchronous function — no file I/O.
  *
@@ -185,16 +259,26 @@ export function buildGraphSvg(
 	const graphTop = DATE_HEADER_HEIGHT;
 	const graphBottom = graphTop + GRAPH_HEIGHT;
 
-	// ── Vault event lookups ──────────────────────────────────────
+	// ── Range Event Swimlanes ───────────────────────────────────
+	const RANGE_TRACK_HEIGHT = 20;
+	const RANGE_BAR_HEIGHT = 16;
+	const RANGE_SWIMLANE_GAP = 6;
+
+	const rangeTracks = packRangeEventsIntoTracks(vaultEvents, days);
+	const ganttTop = graphBottom + RANGE_SWIMLANE_GAP;
+	const ganttHeight = rangeTracks.trackCount > 0
+		? rangeTracks.trackCount * RANGE_TRACK_HEIGHT
+		: 0;
+
+	// ── Vault event lookups (for Point Events) ──────────────────
 	const eventsByDate = new Map<string, VaultEvent>();
 	for (const ev of vaultEvents) {
-		eventsByDate.set(ev.date, ev);
+		if (!ev.isRange) {
+			eventsByDate.set(ev.date, ev);
+		}
 	}
 
 	// ── Per-label metrics + row layout (skipped when labels hidden) ─
-	// Literal "\n" sequences in the YAML value (unquoted / single-
-	// quoted) are treated as newlines, as are real newlines that
-	// YAML double-quoting produces.
 	interface LabelMetrics {
 		lines: string[];
 		width: number;   // foreignObject width in px
@@ -204,7 +288,7 @@ export function buildGraphSvg(
 	const eventLabelRows = new Map<string, number>();
 	const rowMaxHeight: number[] = [];
 	const rowTopY: number[] = [];
-	const labelAreaTop = graphBottom + LABEL_AREA_GAP;
+	const labelAreaTop = (ganttHeight > 0 ? ganttTop + ganttHeight : graphBottom) + LABEL_AREA_GAP;
 
 	if (ctx.showEventLabels) {
 		// Measure each label's text so the foreignObject is sized to fit.
@@ -427,6 +511,56 @@ export function buildGraphSvg(
 			fill: ctx.moodColors[mood],
 			class: "daylio-mood-bar",
 		}));
+	}
+
+	// ── Range Event Swimlane Pills ──────────────────────────────
+	if (rangeTracks.spans.length > 0) {
+		const rangeGroup = svgEl("g", { class: "daylio-range-swimlanes" });
+		for (const span of rangeTracks.spans) {
+			const x1 = LEFT_PAD + span.startIdx * stride;
+			const x2 = LEFT_PAD + span.endIdx * stride + BAR_WIDTH;
+			const width = Math.max(16, x2 - x1);
+			const y = ganttTop + span.trackIdx * RANGE_TRACK_HEIGHT;
+
+			const pillGroup = svgEl("g", { class: "daylio-range-pill-group" });
+			const rect = svgEl("rect", {
+				class: "daylio-range-pill",
+				x: String(x1),
+				y: String(y),
+				width: String(width),
+				height: String(RANGE_BAR_HEIGHT),
+				rx: "4",
+				ry: "4",
+			});
+			pillGroup.appendChild(rect);
+
+			const fo = svgEl("foreignObject", {
+				x: String(x1),
+				y: String(y),
+				width: String(width),
+				height: String(RANGE_BAR_HEIGHT),
+			});
+			const div = document.createElement("div");
+			div.className = "daylio-range-pill-text";
+			div.textContent = span.event.label ?? "";
+			div.title = `${span.event.label} (${span.event.date} → ${span.event.endDate})`;
+			fo.appendChild(div);
+			pillGroup.appendChild(fo);
+
+			const titleEl = svgEl("title");
+			titleEl.textContent = `${span.event.label} (${span.event.date} → ${span.event.endDate})`;
+			pillGroup.appendChild(titleEl);
+
+			const filePath = span.event.filePath;
+			pillGroup.addEventListener("click", (evt) => {
+				evt.preventDefault();
+				evt.stopPropagation();
+				ctx.openFile(filePath);
+			});
+
+			rangeGroup.appendChild(pillGroup);
+		}
+		svg.appendChild(rangeGroup);
 	}
 
 	// ── Date ticks ───────────────────────────────────────────────

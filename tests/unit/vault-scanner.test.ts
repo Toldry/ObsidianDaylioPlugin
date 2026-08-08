@@ -319,4 +319,37 @@ describe("scanVaultEvents — scanDir filtering", () => {
 		const events = scanVaultEvents(app, "entries/");
 		expect(events).toHaveLength(2);
 	});
+
+	it("parses daylio_event list properties and daylio_end property", () => {
+		const app = buildMockApp([
+			{
+				basename: "2024-08-12 Vacation",
+				path: "2024-08-12 Vacation.md",
+				frontmatter: {
+					daylio_events: [
+						"Got a cat",
+						"Summer Trip | 2024-08-12 -> 2024-08-28",
+					],
+					daylio_end: "2024-08-28",
+				},
+			},
+		]);
+		const events = scanVaultEvents(app);
+		expect(events).toHaveLength(2);
+		expect(events[0]).toEqual({
+			date: "2024-08-12",
+			endDate: "2024-08-28",
+			isRange: true,
+			label: "Got a cat",
+			filePath: "2024-08-12 Vacation.md",
+		});
+		expect(events[1]).toEqual({
+			date: "2024-08-12",
+			endDate: "2024-08-28",
+			isRange: true,
+			label: "Summer Trip",
+			filePath: "2024-08-12 Vacation.md",
+		});
+	});
 });
+

@@ -33,11 +33,14 @@ export {
 } from "./csv-parser";
 export {
 	scanVaultEvents,
+	parseEventString,
 	DATE_PREFIX_REGEX,
 } from "./vault-scanner";
 export {
 	computeEntrySpans,
+	packRangeEventsIntoTracks,
 	type EntrySpan,
+	type RangeTrackSpan,
 } from "./graph-builder";
 export {
 	computeAnchoredScroll,
