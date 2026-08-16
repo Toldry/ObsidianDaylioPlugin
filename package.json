@@ -1,6 +1,6 @@
 {
 	"name": "daylio-mood-graph",
-	"version": "1.1.4",
+	"version": "1.1.5",
 	"description": "Visualizes Daylio mood data as a color-coded graph with clickable vault event labels.",
 	"main": "main.js",
 	"type": "module",

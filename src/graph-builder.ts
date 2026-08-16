@@ -431,20 +431,17 @@ export function buildGraphSvg(
 		const day = days[i];
 		if (!day) continue;
 		const colX = LEFT_PAD + i * stride;
-		const n = day.entries.length;
+		const uniqueMoods = new Set(day.entries.map((e) => e.mood));
 
-		for (let j = 0; j < n; j++) {
-			const entry = day.entries[j];
-			if (!entry) continue;
-			const lane = MOOD_TO_LANE[entry.mood];
+		for (const mood of uniqueMoods) {
+			const lane = MOOD_TO_LANE[mood];
 			const laneTop = graphTop + lane * LANE_HEIGHT;
-			const slotHeight = MOOD_BAR_HEIGHT / n;
-			const y = laneTop + MOOD_BAR_OFFSET + j * slotHeight;
+			const y = laneTop + MOOD_BAR_OFFSET;
 			const w = BAR_WIDTH;
-			const h = slotHeight;
+			const h = MOOD_BAR_HEIGHT;
 			const rx = Math.min(BAR_CORNER_RADIUS_MAX, w / 2, h / 2);
 
-			moodPaths[entry.mood] +=
+			moodPaths[mood] +=
 				`M${colX + rx},${y}` +
 				`h${w - 2 * rx}` +
 				`a${rx},${rx} 0 0 1 ${rx},${rx}` +
