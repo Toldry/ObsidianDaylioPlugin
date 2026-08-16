@@ -251,8 +251,24 @@ describe("Vault events integration (test vault notes)", () => {
 		expect(eventsByDate.get("2024-01-08")?.label).toBe("Took up running");
 	});
 
+	it("detects the 'Trip to London' range event on 2024-03-10", () => {
+		expect(eventsByDate.get("2024-03-10")?.label).toBe("Trip to London");
+	});
+
+	it("detects the 'Summer Vacation' range event on 2024-08-12", () => {
+		expect(eventsByDate.get("2024-08-12")?.label).toBe("Summer Vacation");
+	});
+
 	it("detects the 'Got a cat' event on 2024-09-30", () => {
 		expect(eventsByDate.get("2024-09-30")?.label).toBe("Got a cat");
+	});
+
+	it("detects events from multi-event Autumn Highlights on 2024-10-05", () => {
+		const autumnEvents = events.filter((e) => e.date === "2024-10-05");
+		expect(autumnEvents.length).toBeGreaterThanOrEqual(1);
+		const labels = autumnEvents.map((e) => e.label);
+		expect(labels).toContain("Autumn Walk");
+		expect(labels).toContain("Tech Conference");
 	});
 
 	it("detects the 'New Year 2025' event on 2025-01-01", () => {
@@ -262,6 +278,7 @@ describe("Vault events integration (test vault notes)", () => {
 	it("detects the 'Got promoted' event on 2025-03-10", () => {
 		expect(eventsByDate.get("2025-03-10")?.label).toBe("Got promoted!");
 	});
+
 
 	// ── Dated notes without a daylio_event label ────────────────────
 	// These produce VaultEvent entries (and get a column marker on the

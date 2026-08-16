@@ -324,8 +324,10 @@
 	line-height: 16px;
 	color: var(--text-normal);
 	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	padding: 0 6px;
+	overflow: visible;
+	padding: 0 4px;
 	user-select: none;
+	pointer-events: none;
+	text-shadow: 0 1px 2px var(--background-primary);
 }
+

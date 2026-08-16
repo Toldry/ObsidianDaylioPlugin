@@ -161,20 +161,28 @@ export interface GraphBuildContext {
 	minWidth?: number;
 }
 
-export interface RangeTrackSpan {
+export interface EventTrackSpan {
 	event: VaultEvent;
 	startIdx: number;
 	endIdx: number;
 	trackIdx: number;
+	textWidth: number;
+	isRange: boolean;
 }
 
+export type RangeTrackSpan = EventTrackSpan;
+
 /**
- * Greedily pack range events into non-overlapping horizontal tracks (swimlanes).
+ * Greedily pack all labelled events into non-overlapping horizontal tracks (swimlanes).
+ * Takes into account the text label width so text overflow never collides with adjacent events.
  */
-export function packRangeEventsIntoTracks(
+export function packEventsIntoTracks(
 	vaultEvents: VaultEvent[],
 	days: DayData[],
-): { spans: RangeTrackSpan[]; trackCount: number } {
+	stride = 10,
+	barWidth = 8,
+	measureTextFn?: (text: string) => number,
+): { spans: EventTrackSpan[]; trackCount: number } {
 	if (days.length === 0) return { spans: [], trackCount: 0 };
 
 	const dateIdxMap = new Map<string, number>();
@@ -183,68 +191,99 @@ export function packRangeEventsIntoTracks(
 		if (d) dateIdxMap.set(d.date, i);
 	}
 
-	const validSpans: { event: VaultEvent; startIdx: number; endIdx: number }[] = [];
+	const validItems: {
+		event: VaultEvent;
+		startIdx: number;
+		endIdx: number;
+		isRange: boolean;
+		textWidth: number;
+		visualWidth: number;
+	}[] = [];
 
 	for (const ev of vaultEvents) {
-		if (!ev.isRange || !ev.label || !ev.endDate) continue;
+		if (!ev.label) continue;
 		const startIdx = dateIdxMap.get(ev.date);
 		if (startIdx === undefined) continue;
 
-		let endIdx = dateIdxMap.get(ev.endDate);
+		let endIdx = ev.endDate ? dateIdxMap.get(ev.endDate) : startIdx;
 		if (endIdx === undefined) {
 			const lastDay = days[days.length - 1];
-			if (lastDay && ev.endDate >= lastDay.date) {
+			if (lastDay && ev.endDate && ev.endDate >= lastDay.date) {
 				endIdx = days.length - 1;
 			} else {
-				continue;
+				endIdx = startIdx;
 			}
 		}
 
-		if (endIdx >= startIdx) {
-			validSpans.push({ event: ev, startIdx, endIdx });
+		if (endIdx < startIdx) {
+			endIdx = startIdx;
 		}
+
+		const isRange = endIdx > startIdx;
+		const textWidth = measureTextFn
+			? Math.ceil(measureTextFn(ev.label)) + 12
+			: ev.label.length * 6 + 12;
+		const barWidthPx = Math.max(barWidth, (endIdx - startIdx) * stride + barWidth);
+		const visualWidth = Math.max(barWidthPx, textWidth);
+
+		validItems.push({
+			event: ev,
+			startIdx,
+			endIdx,
+			isRange,
+			textWidth,
+			visualWidth,
+		});
 	}
 
-	validSpans.sort((a, b) => a.startIdx - b.startIdx || b.endIdx - a.endIdx);
+	// Sort by startIdx ascending, then endIdx descending
+	validItems.sort((a, b) => a.startIdx - b.startIdx || b.endIdx - a.endIdx);
 
-	const trackLastEndIdx: number[] = [];
-	const spans: RangeTrackSpan[] = [];
+	const trackLastRightX: number[] = [];
+	const spans: EventTrackSpan[] = [];
 
-	for (const item of validSpans) {
+	for (const item of validItems) {
+		const startX = LEFT_PAD + item.startIdx * stride;
+		const rightEdgeX = startX + item.visualWidth + 6; // 6px gap to next item
+
 		let assignedTrack = -1;
-		for (let t = 0; t < trackLastEndIdx.length; t++) {
-			const lastEnd = trackLastEndIdx[t] ?? -1;
-			if (lastEnd < item.startIdx) {
+		for (let t = 0; t < trackLastRightX.length; t++) {
+			const lastRightX = trackLastRightX[t] ?? -Infinity;
+			if (lastRightX <= startX) {
 				assignedTrack = t;
-				trackLastEndIdx[t] = item.endIdx;
+				trackLastRightX[t] = rightEdgeX;
 				break;
 			}
 		}
+
 		if (assignedTrack === -1) {
-			assignedTrack = trackLastEndIdx.length;
-			trackLastEndIdx.push(item.endIdx);
+			assignedTrack = trackLastRightX.length;
+			trackLastRightX.push(rightEdgeX);
 		}
+
 		spans.push({
 			event: item.event,
 			startIdx: item.startIdx,
 			endIdx: item.endIdx,
 			trackIdx: assignedTrack,
+			textWidth: item.textWidth,
+			isRange: item.isRange,
 		});
 	}
 
-	return { spans, trackCount: trackLastEndIdx.length };
+	return { spans, trackCount: trackLastRightX.length };
 }
+
+/** Backwards-compatibility alias for packEventsIntoTracks */
+export const packRangeEventsIntoTracks = (
+	vaultEvents: VaultEvent[],
+	days: DayData[],
+): { spans: RangeTrackSpan[]; trackCount: number } => {
+	return packEventsIntoTracks(vaultEvents, days, 10, 8);
+};
 
 /**
  * Build the mood-history SVG.  Pure synchronous function — no file I/O.
- *
- * Performance optimisations vs. the original monolithic version:
- *   - Mood bars are merged into one `<path>` per mood level (5 paths
- *     instead of ~2 900 individual `<rect>` + `<title>` pairs).
- *   - Lane dividers use a single `<path>` instead of N-1 `<line>` elements.
- *   - Month separators use a single `<path>`.
- *   - Tooltip text is handled via a shared `<title>` repositioned on hover
- *     rather than one `<title>` per bar.
  */
 export function buildGraphSvg(
 	barWidth: number,
@@ -259,120 +298,35 @@ export function buildGraphSvg(
 	const graphTop = DATE_HEADER_HEIGHT;
 	const graphBottom = graphTop + GRAPH_HEIGHT;
 
-	// ── Range Event Swimlanes ───────────────────────────────────
+	// ── Event Swimlane Track Layout ─────────────────────────────
 	const RANGE_TRACK_HEIGHT = 20;
 	const RANGE_BAR_HEIGHT = 16;
 	const RANGE_SWIMLANE_GAP = 6;
 
-	const rangeTracks = packRangeEventsIntoTracks(vaultEvents, days);
+	// Measure canvas for accurate label text widths
+	const measureCanvas = document.createElement("canvas");
+	const measureCtx = measureCanvas.getContext("2d");
+	if (measureCtx) {
+		measureCtx.font = `${LABEL_FONT_SIZE}px system-ui, sans-serif`;
+	}
+	const measureLine = (text: string): number =>
+		measureCtx ? measureCtx.measureText(text).width : text.length * 6;
+
+	const eventTracks = ctx.showEventLabels
+		? packEventsIntoTracks(vaultEvents, days, stride, BAR_WIDTH, measureLine)
+		: { spans: [], trackCount: 0 };
+
 	const ganttTop = graphBottom + RANGE_SWIMLANE_GAP;
-	const ganttHeight = rangeTracks.trackCount > 0
-		? rangeTracks.trackCount * RANGE_TRACK_HEIGHT
+	const ganttHeight = eventTracks.trackCount > 0
+		? eventTracks.trackCount * RANGE_TRACK_HEIGHT
 		: 0;
 
-	// ── Vault event lookups (for Point Events) ──────────────────
-	const eventsByDate = new Map<string, VaultEvent>();
-	for (const ev of vaultEvents) {
-		if (!ev.isRange) {
-			eventsByDate.set(ev.date, ev);
-		}
-	}
-
-	// ── Per-label metrics + row layout (skipped when labels hidden) ─
-	interface LabelMetrics {
-		lines: string[];
-		width: number;   // foreignObject width in px
-		height: number;  // foreignObject height in px
-	}
-	const labelMetrics = new Map<string, LabelMetrics>();
-	const eventLabelRows = new Map<string, number>();
-	const rowMaxHeight: number[] = [];
-	const rowTopY: number[] = [];
-	const labelAreaTop = (ganttHeight > 0 ? ganttTop + ganttHeight : graphBottom) + LABEL_AREA_GAP;
-
-	if (ctx.showEventLabels) {
-		// Measure each label's text so the foreignObject is sized to fit.
-		const measureCanvas = document.createElement("canvas");
-		const measureCtx = measureCanvas.getContext("2d");
-		if (measureCtx) {
-			measureCtx.font =
-				`${LABEL_FONT_SIZE}px system-ui, sans-serif`;
-		}
-		const measureLine = (text: string): number =>
-			measureCtx
-				? measureCtx.measureText(text).width
-				: text.length * 6;
-
-		for (const ev of eventsByDate.values()) {
-			if (!ev.label) continue;
-			const lines = ev.label
-				.replace(/\\n/g, "\n")
-				.split("\n");
-			const maxLineWidth = Math.max(...lines.map(measureLine));
-			const width = Math.ceil(maxLineWidth) + LABEL_INNER_H_PAD;
-			const height =
-				lines.length * LABEL_LINE_HEIGHT_PX + LABEL_INNER_V_PAD;
-			labelMetrics.set(ev.date, { lines, width, height });
-		}
-
-		// Greedy collision-avoidance: assign each label the lowest row
-		// where it doesn't overlap any already-placed label.
-		const rowRightEdge: number[] = [];
-		for (let i = 0; i < days.length; i++) {
-			const day = days[i];
-			if (!day) continue;
-			const ev = eventsByDate.get(day.date);
-			if (!ev?.label) continue;
-			const metrics = labelMetrics.get(day.date);
-			const labelWidth =
-				metrics?.width ?? LABEL_INNER_H_PAD + LABEL_DEFAULT_TEXT_WIDTH;
-			const labelHeight =
-				metrics?.height ?? LABEL_LINE_HEIGHT_PX + LABEL_INNER_V_PAD;
-			const cx = LEFT_PAD + i * stride + BAR_WIDTH / 2;
-			const left = cx - labelWidth / 2;
-			const right = cx + labelWidth / 2;
-			let row = 0;
-			while (
-				row < rowRightEdge.length &&
-				(rowRightEdge[row] ?? -Infinity) > left - LABEL_H_PAD
-			) {
-				row++;
-			}
-			rowRightEdge[row] = right;
-			rowMaxHeight[row] = Math.max(
-				rowMaxHeight[row] ?? 0,
-				labelHeight,
-			);
-			eventLabelRows.set(day.date, row);
-		}
-
-		// Compute each row's top y, stacking rows with variable heights.
-		let y = labelAreaTop;
-		const numLabelRows = Math.max(
-			1,
-			eventLabelRows.size > 0
-				? Math.max(...eventLabelRows.values()) + 1
-				: 0,
-		);
-		for (let row = 0; row < numLabelRows; row++) {
-			rowTopY[row] = y;
-			y +=
-				(rowMaxHeight[row] ??
-					LABEL_LINE_HEIGHT_PX + LABEL_INNER_V_PAD) +
-				LABEL_ROW_GAP;
-		}
-	}
-
-	// SVG height: includes label area when visible, otherwise just the graph.
-	const totalHeight = ctx.showEventLabels && rowTopY.length > 0
-		? (rowTopY[rowTopY.length - 1] ?? labelAreaTop) +
-		  (rowMaxHeight[rowTopY.length - 1] ??
-		      LABEL_LINE_HEIGHT_PX + LABEL_INNER_V_PAD) + SVG_BOTTOM_PAD
+	// SVG height: includes swimlane tracks when visible, otherwise just the graph.
+	const totalHeight = ganttHeight > 0
+		? ganttTop + ganttHeight + SVG_BOTTOM_PAD
 		: graphBottom + SVG_BOTTOM_PAD;
+
 	const graphWidth = days.length * stride - BAR_GAP + LEFT_PAD + RIGHT_PAD;
-	// Honour the caller's minimum-width request (see GraphBuildContext.minWidth).
-	// Both width and viewBox are widened so the extra space is truly empty
-	// (no scaling) — bars remain at their natural coordinates.
 	const svgWidth = Math.max(graphWidth, ctx.minWidth ?? 0);
 
 	// ── Root SVG element ─────────────────────────────────────────
@@ -397,13 +351,10 @@ export function buildGraphSvg(
 	}
 
 	// ── Month/year separators + labels ───────────────────────────
-	// At the two most zoomed-out levels (barWidth ≤ 0.5) only label
-	// year starts to avoid crowding.  Year-start separator lines use
-	// a distinct CSS class so they can be styled more prominently.
 	{
 		const yearOnlyLabels = BAR_WIDTH <= BAR_WIDTH_YEAR_ONLY_THRESHOLD;
-		let monthPath = "";  // non-year-start separators
-		let yearPath  = "";  // year-start separators (styled differently)
+		let monthPath = ""; // non-year-start separators
+		let yearPath  = ""; // year-start separators
 		let currentMonth = "";
 		let lastLabelX = -Infinity;
 
@@ -416,47 +367,40 @@ export function buildGraphSvg(
 			const x = LEFT_PAD + i * stride;
 			const isYearStart = monthStr.endsWith("-01");
 
-			// Route the separator line into the appropriate path bucket.
-			// Lines start at graphTop (below the date header / labels) so
-			// they don't visually cut through the month/year text.
 			if (isYearStart) {
-				yearPath +=
-					`M${x - SEPARATOR_X_OFFSET} ${graphTop}V${graphBottom}`;
+				yearPath += `M${x - SEPARATOR_X_OFFSET} ${graphTop}V${graphBottom}`;
 			} else {
-				monthPath +=
-					`M${x - SEPARATOR_X_OFFSET} ${graphTop}V${graphBottom}`;
+				monthPath += `M${x - SEPARATOR_X_OFFSET} ${graphTop}V${graphBottom}`;
 			}
 
-			// Label: at max zoom-out show only year starts; otherwise
-			// show every month (subject to the minimum spacing guard).
-			if (yearOnlyLabels) {
-				if (!isYearStart) continue;
-				if (x - lastLabelX < MIN_MONTH_LABEL_PX) continue;
+			if (yearOnlyLabels && !isYearStart) continue;
+
+			if (x - lastLabelX >= MIN_MONTH_LABEL_PX) {
 				lastLabelX = x;
-				const year = monthStr.slice(0, 4);
-				const label = svgEl("text", {
-					x: String(x - SEPARATOR_X_OFFSET),
-					y: String(MONTH_LABEL_Y),
-					"text-anchor": "middle",
-					class: "daylio-month-label",
-				});
-				label.textContent = year;
-				svg.appendChild(label);
-			} else {
-				if (x - lastLabelX < MIN_MONTH_LABEL_PX) continue;
-				lastLabelX = x;
-				const monthDate = new Date(day.date + "T00:00:00");
-				const monthName = monthDate.toLocaleString("default", {
-					month: "short",
-				});
-				const label = svgEl("text", {
-					x: String(x - SEPARATOR_X_OFFSET),
-					y: String(MONTH_LABEL_Y),
-					"text-anchor": "middle",
-					class: "daylio-month-label",
-				});
-				label.textContent = `${monthName} ${monthDate.getFullYear()}`;
-				svg.appendChild(label);
+				if (yearOnlyLabels) {
+					const year = monthStr.slice(0, 4);
+					const label = svgEl("text", {
+						x: String(x - SEPARATOR_X_OFFSET),
+						y: String(MONTH_LABEL_Y),
+						"text-anchor": "middle",
+						class: "daylio-month-label",
+					});
+					label.textContent = year;
+					svg.appendChild(label);
+				} else {
+					const monthDate = new Date(day.date + "T00:00:00");
+					const monthName = monthDate.toLocaleString("default", {
+						month: "short",
+					});
+					const label = svgEl("text", {
+						x: String(x - SEPARATOR_X_OFFSET),
+						y: String(MONTH_LABEL_Y),
+						"text-anchor": "middle",
+						class: "daylio-month-label",
+					});
+					label.textContent = `${monthName} ${monthDate.getFullYear()}`;
+					svg.appendChild(label);
+				}
 			}
 		}
 
@@ -475,25 +419,33 @@ export function buildGraphSvg(
 	}
 
 	// ── Mood bars (one <path> per mood level) ────────────────────
-	// Instead of thousands of individual <rect> elements, we build
-	// a single path-data string per mood and render 5 <path> nodes.
 	const moodPaths: Record<MoodLevel, string> = {
-		rad: "", good: "", meh: "", bad: "", awful: "",
+		rad: "",
+		good: "",
+		meh: "",
+		bad: "",
+		awful: "",
 	};
+
 	for (let i = 0; i < days.length; i++) {
 		const day = days[i];
 		if (!day) continue;
-		const x = LEFT_PAD + i * stride;
-		for (const entry of day.entries) {
-			const laneIndex = MOOD_TO_LANE[entry.mood];
-			const barY = graphTop + laneIndex * LANE_HEIGHT + MOOD_BAR_OFFSET;
-			// Rounded rect via path: moveTo + arc corners + lines.
-			// For very small bars the radius shrinks to half the width.
-			const rx = Math.min(BAR_CORNER_RADIUS_MAX, BAR_WIDTH / 2);
+		const colX = LEFT_PAD + i * stride;
+		const n = day.entries.length;
+
+		for (let j = 0; j < n; j++) {
+			const entry = day.entries[j];
+			if (!entry) continue;
+			const lane = MOOD_TO_LANE[entry.mood];
+			const laneTop = graphTop + lane * LANE_HEIGHT;
+			const slotHeight = MOOD_BAR_HEIGHT / n;
+			const y = laneTop + MOOD_BAR_OFFSET + j * slotHeight;
 			const w = BAR_WIDTH;
-			const h = MOOD_BAR_HEIGHT;
+			const h = slotHeight;
+			const rx = Math.min(BAR_CORNER_RADIUS_MAX, w / 2, h / 2);
+
 			moodPaths[entry.mood] +=
-				`M${x + rx},${barY}` +
+				`M${colX + rx},${y}` +
 				`h${w - 2 * rx}` +
 				`a${rx},${rx} 0 0 1 ${rx},${rx}` +
 				`v${h - 2 * rx}` +
@@ -511,56 +463,6 @@ export function buildGraphSvg(
 			fill: ctx.moodColors[mood],
 			class: "daylio-mood-bar",
 		}));
-	}
-
-	// ── Range Event Swimlane Pills ──────────────────────────────
-	if (rangeTracks.spans.length > 0) {
-		const rangeGroup = svgEl("g", { class: "daylio-range-swimlanes" });
-		for (const span of rangeTracks.spans) {
-			const x1 = LEFT_PAD + span.startIdx * stride;
-			const x2 = LEFT_PAD + span.endIdx * stride + BAR_WIDTH;
-			const width = Math.max(16, x2 - x1);
-			const y = ganttTop + span.trackIdx * RANGE_TRACK_HEIGHT;
-
-			const pillGroup = svgEl("g", { class: "daylio-range-pill-group" });
-			const rect = svgEl("rect", {
-				class: "daylio-range-pill",
-				x: String(x1),
-				y: String(y),
-				width: String(width),
-				height: String(RANGE_BAR_HEIGHT),
-				rx: "4",
-				ry: "4",
-			});
-			pillGroup.appendChild(rect);
-
-			const fo = svgEl("foreignObject", {
-				x: String(x1),
-				y: String(y),
-				width: String(width),
-				height: String(RANGE_BAR_HEIGHT),
-			});
-			const div = document.createElement("div");
-			div.className = "daylio-range-pill-text";
-			div.textContent = span.event.label ?? "";
-			div.title = `${span.event.label} (${span.event.date} → ${span.event.endDate})`;
-			fo.appendChild(div);
-			pillGroup.appendChild(fo);
-
-			const titleEl = svgEl("title");
-			titleEl.textContent = `${span.event.label} (${span.event.date} → ${span.event.endDate})`;
-			pillGroup.appendChild(titleEl);
-
-			const filePath = span.event.filePath;
-			pillGroup.addEventListener("click", (evt) => {
-				evt.preventDefault();
-				evt.stopPropagation();
-				ctx.openFile(filePath);
-			});
-
-			rangeGroup.appendChild(pillGroup);
-		}
-		svg.appendChild(rangeGroup);
 	}
 
 	// ── Date ticks ───────────────────────────────────────────────
@@ -590,80 +492,98 @@ export function buildGraphSvg(
 		}
 	}
 
-	// ── Event labels + connectors ────────────────────────────────
-	// Two-pass rendering: connectors first (behind), labels second
-	// (in front) so that crossing connector lines never obscure text.
-	if (ctx.showEventLabels) {
-		// Pass 1 — connector lines (drawn behind labels).
-		for (let i = 0; i < days.length; i++) {
-			const day = days[i];
-			if (!day) continue;
-			const event = eventsByDate.get(day.date);
-			if (!event?.label) continue;
+	// ── Unified Event Swimlanes & Dotted Connectors ──────────────
+	if (ctx.showEventLabels && eventTracks.spans.length > 0) {
+		// Pass 1 — Vertical Dotted Connector Lines (drawn behind pills)
+		const connectorsGroup = svgEl("g", { class: "daylio-event-connectors" });
+		for (const span of eventTracks.spans) {
+			const yPill = ganttTop + span.trackIdx * RANGE_TRACK_HEIGHT;
 
-			const cx = LEFT_PAD + i * stride + BAR_WIDTH / 2;
-			const evRow = eventLabelRows.get(day.date) ?? 0;
-			const labelY = rowTopY[evRow] ?? labelAreaTop;
+			if (!span.isRange) {
+				// Single-date event: 1 vertical dotted line
+				const cx = LEFT_PAD + span.startIdx * stride + BAR_WIDTH / 2;
+				connectorsGroup.appendChild(svgEl("line", {
+					x1: String(cx),
+					y1: "0",
+					x2: String(cx),
+					y2: String(yPill),
+					class: "daylio-event-connector",
+				}));
+			} else {
+				// Multi-day range event: 2 vertical dotted lines (start date and end date)
+				const cxStart = LEFT_PAD + span.startIdx * stride + BAR_WIDTH / 2;
+				const cxEnd = LEFT_PAD + span.endIdx * stride + BAR_WIDTH / 2;
 
-			svg.appendChild(svgEl("line", {
-				x1: String(cx),
-				y1: "0",
-				x2: String(cx),
-				y2: String(labelY),
-				class: "daylio-event-connector",
-			}));
+				connectorsGroup.appendChild(svgEl("line", {
+					x1: String(cxStart),
+					y1: "0",
+					x2: String(cxStart),
+					y2: String(yPill),
+					class: "daylio-event-connector",
+				}));
+				connectorsGroup.appendChild(svgEl("line", {
+					x1: String(cxEnd),
+					y1: "0",
+					x2: String(cxEnd),
+					y2: String(yPill),
+					class: "daylio-event-connector",
+				}));
+			}
 		}
+		svg.appendChild(connectorsGroup);
 
-		// Pass 2 — label cards (drawn in front of connectors).
-		for (let i = 0; i < days.length; i++) {
-			const day = days[i];
-			if (!day) continue;
-			const event = eventsByDate.get(day.date);
-			if (!event?.label) continue;
+		// Pass 2 — Event Swimlane Pills & Labels
+		const swimlaneGroup = svgEl("g", { class: "daylio-range-swimlanes" });
+		for (const span of eventTracks.spans) {
+			const x1 = LEFT_PAD + span.startIdx * stride;
+			const x2 = LEFT_PAD + span.endIdx * stride + BAR_WIDTH;
+			const barWidthPx = x2 - x1;
+			const pillWidth = Math.max(BAR_WIDTH, barWidthPx);
+			const totalVisualWidth = Math.max(pillWidth, span.textWidth);
+			const yPill = ganttTop + span.trackIdx * RANGE_TRACK_HEIGHT;
 
-			const eventLabel = event.label;
-			const metrics = labelMetrics.get(day.date);
-			const labelWidth =
-				metrics?.width ?? LABEL_INNER_H_PAD + LABEL_DEFAULT_TEXT_WIDTH;
-			const labelHeight =
-				metrics?.height ?? LABEL_LINE_HEIGHT_PX + LABEL_INNER_V_PAD;
-			const lines = metrics?.lines ?? [eventLabel];
-
-			const cx = LEFT_PAD + i * stride + BAR_WIDTH / 2;
-			const evRow = eventLabelRows.get(day.date) ?? 0;
-			const labelY = rowTopY[evRow] ?? labelAreaTop;
+			const pillGroup = svgEl("g", { class: "daylio-range-pill-group" });
+			const rect = svgEl("rect", {
+				class: "daylio-range-pill",
+				x: String(x1),
+				y: String(yPill),
+				width: String(pillWidth),
+				height: String(RANGE_BAR_HEIGHT),
+				rx: "3",
+				ry: "3",
+			});
+			pillGroup.appendChild(rect);
 
 			const fo = svgEl("foreignObject", {
-				x: String(cx - labelWidth / 2),
-				y: String(labelY),
-				width: String(labelWidth),
-				height: String(labelHeight),
+				x: String(x1),
+				y: String(yPill),
+				width: String(totalVisualWidth),
+				height: String(RANGE_BAR_HEIGHT),
 			});
+			const div = document.createElement("div");
+			div.className = "daylio-range-pill-text";
+			div.textContent = span.event.label ?? "";
+			const dateInfo = span.isRange
+				? `${span.event.date} → ${span.event.endDate}`
+				: span.event.date;
+			div.title = `${span.event.label} (${dateInfo})\nClick to open note`;
+			fo.appendChild(div);
+			pillGroup.appendChild(fo);
 
-			const labelDiv = document.createElement("div");
-			labelDiv.className = "daylio-event-label";
-			labelDiv.title =
-				`${lines.join("\n")}\n${event.date}\nClick to open note`;
+			const titleEl = svgEl("title");
+			titleEl.textContent = `${span.event.label} (${dateInfo})\nClick to open note`;
+			pillGroup.appendChild(titleEl);
 
-			for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
-				if (lineIdx > 0) {
-					labelDiv.appendChild(document.createElement("br"));
-				}
-				labelDiv.appendChild(
-					document.createTextNode(lines[lineIdx] ?? ""),
-				);
-			}
-
-			const filePath = event.filePath;
-			labelDiv.addEventListener("click", (evt) => {
+			const filePath = span.event.filePath;
+			pillGroup.addEventListener("click", (evt) => {
 				evt.preventDefault();
 				evt.stopPropagation();
 				ctx.openFile(filePath);
 			});
 
-			fo.appendChild(labelDiv);
-			svg.appendChild(fo);
+			swimlaneGroup.appendChild(pillGroup);
 		}
+		svg.appendChild(swimlaneGroup);
 	}
 
 	// ── Shared hover labels (date + entry filename) ─────────────

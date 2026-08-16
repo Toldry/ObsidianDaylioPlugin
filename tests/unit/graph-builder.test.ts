@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeEntrySpans, packRangeEventsIntoTracks, type EntrySpan } from "../../src/main";
+import { computeEntrySpans, packEventsIntoTracks, packRangeEventsIntoTracks, type EntrySpan } from "../../src/main";
 import type { DayData, VaultEvent } from "../../src/main";
 
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -158,14 +158,14 @@ describe("computeEntrySpans", () => {
 	});
 });
 
-describe("packRangeEventsIntoTracks", () => {
+describe("packEventsIntoTracks", () => {
 	it("packs non-overlapping range events into track 0", () => {
 		const d = days("2024-08-01", "2024-08-02", "2024-08-03", "2024-08-04", "2024-08-05");
 		const events: VaultEvent[] = [
 			{ date: "2024-08-01", endDate: "2024-08-02", isRange: true, label: "Trip 1", filePath: "1.md" },
 			{ date: "2024-08-03", endDate: "2024-08-05", isRange: true, label: "Trip 2", filePath: "2.md" },
 		];
-		const { spans, trackCount } = packRangeEventsIntoTracks(events, d);
+		const { spans, trackCount } = packEventsIntoTracks(events, d, 100, 20);
 		expect(trackCount).toBe(1);
 		expect(spans).toHaveLength(2);
 		expect(spans[0]?.trackIdx).toBe(0);
@@ -178,11 +178,39 @@ describe("packRangeEventsIntoTracks", () => {
 			{ date: "2024-08-01", endDate: "2024-08-04", isRange: true, label: "Big Trip", filePath: "1.md" },
 			{ date: "2024-08-02", endDate: "2024-08-03", isRange: true, label: "Nested Offsite", filePath: "2.md" },
 		];
-		const { spans, trackCount } = packRangeEventsIntoTracks(events, d);
+		const { spans, trackCount } = packEventsIntoTracks(events, d, 100, 20);
 		expect(trackCount).toBe(2);
 		expect(spans).toHaveLength(2);
 		expect(spans[0]?.trackIdx).toBe(0);
 		expect(spans[1]?.trackIdx).toBe(1);
 	});
+
+	it("unifies 1-day point events and multi-day range events", () => {
+		const d = days("2024-08-01", "2024-08-02", "2024-08-03", "2024-08-04");
+		const events: VaultEvent[] = [
+			{ date: "2024-08-01", label: "Point 1", filePath: "1.md" },
+			{ date: "2024-08-02", endDate: "2024-08-04", isRange: true, label: "Range 1", filePath: "2.md" },
+		];
+		const { spans, trackCount } = packEventsIntoTracks(events, d, 200, 20);
+		expect(spans).toHaveLength(2);
+		expect(spans[0]?.isRange).toBe(false);
+		expect(spans[1]?.isRange).toBe(true);
+	});
+
+	it("avoids collision when 1-day event label text is wider than its 1-day bar width", () => {
+		const d = days("2024-08-01", "2024-08-02", "2024-08-03");
+		// stride = 20, barWidth = 8.
+		// Event 1 at index 0 (startX = 40). text width = 150px (extends to x ~ 190).
+		// Event 2 at index 1 (startX = 60). Since 60 < 190, it drops to track 1!
+		const events: VaultEvent[] = [
+			{ date: "2024-08-01", label: "Very Long Point Event Label That Overflows", filePath: "1.md" },
+			{ date: "2024-08-02", label: "Next Day Milestone", filePath: "2.md" },
+		];
+		const { spans, trackCount } = packEventsIntoTracks(events, d, 20, 8, (t) => t.length * 6);
+		expect(trackCount).toBe(2);
+		expect(spans[0]?.trackIdx).toBe(0);
+		expect(spans[1]?.trackIdx).toBe(1);
+	});
 });
+
 

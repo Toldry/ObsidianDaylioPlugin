@@ -38,8 +38,10 @@ export {
 } from "./vault-scanner";
 export {
 	computeEntrySpans,
+	packEventsIntoTracks,
 	packRangeEventsIntoTracks,
 	type EntrySpan,
+	type EventTrackSpan,
 	type RangeTrackSpan,
 } from "./graph-builder";
 export {
