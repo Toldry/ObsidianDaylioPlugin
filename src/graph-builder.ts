@@ -168,13 +168,17 @@ export interface EventTrackSpan {
 	trackIdx: number;
 	textWidth: number;
 	isRange: boolean;
+	isCallout: boolean;
+	cardX: number;
+	cardW: number;
 }
 
 export type RangeTrackSpan = EventTrackSpan;
 
 /**
  * Greedily pack all labelled events into non-overlapping horizontal tracks (swimlanes).
- * Takes into account the text label width so text overflow never collides with adjacent events.
+ * Uses Floating Callout Cards when text exceeds the date span width so text is always
+ * cleanly enclosed inside a badge container.
  */
 export function packEventsIntoTracks(
 	vaultEvents: VaultEvent[],
@@ -197,7 +201,11 @@ export function packEventsIntoTracks(
 		endIdx: number;
 		isRange: boolean;
 		textWidth: number;
-		visualWidth: number;
+		isCallout: boolean;
+		cardX: number;
+		cardW: number;
+		visualStartX: number;
+		visualEndX: number;
 	}[] = [];
 
 	for (const ev of vaultEvents) {
@@ -223,8 +231,24 @@ export function packEventsIntoTracks(
 		const textWidth = measureTextFn
 			? Math.ceil(measureTextFn(ev.label)) + 12
 			: ev.label.length * 6 + 12;
-		const barWidthPx = Math.max(barWidth, (endIdx - startIdx) * stride + barWidth);
-		const visualWidth = Math.max(barWidthPx, textWidth);
+		const x1 = LEFT_PAD + startIdx * stride;
+		const x2 = LEFT_PAD + endIdx * stride + barWidth;
+		const barWidthPx = Math.max(barWidth, x2 - x1);
+		const cardWidth = textWidth + 14;
+		const isCallout = barWidthPx < cardWidth;
+
+		let cardX = x1;
+		let cardW = barWidthPx;
+		let visualStartX = x1;
+		let visualEndX = x2;
+
+		if (isCallout) {
+			const cx = (x1 + x2) / 2;
+			cardX = Math.round(cx - cardWidth / 2);
+			cardW = cardWidth;
+			visualStartX = Math.min(x1, cardX);
+			visualEndX = Math.max(x2, cardX + cardWidth);
+		}
 
 		validItems.push({
 			event: ev,
@@ -232,24 +256,27 @@ export function packEventsIntoTracks(
 			endIdx,
 			isRange,
 			textWidth,
-			visualWidth,
+			isCallout,
+			cardX,
+			cardW,
+			visualStartX,
+			visualEndX,
 		});
 	}
 
-	// Sort by startIdx ascending, then endIdx descending
-	validItems.sort((a, b) => a.startIdx - b.startIdx || b.endIdx - a.endIdx);
+	// Sort by visualStartX ascending, then startIdx ascending
+	validItems.sort((a, b) => a.visualStartX - b.visualStartX || a.startIdx - b.startIdx);
 
 	const trackLastRightX: number[] = [];
 	const spans: EventTrackSpan[] = [];
 
 	for (const item of validItems) {
-		const startX = LEFT_PAD + item.startIdx * stride;
-		const rightEdgeX = startX + item.visualWidth + 6; // 6px gap to next item
+		const rightEdgeX = item.visualEndX + 6; // 6px gap to next item on same track
 
 		let assignedTrack = -1;
 		for (let t = 0; t < trackLastRightX.length; t++) {
 			const lastRightX = trackLastRightX[t] ?? -Infinity;
-			if (lastRightX <= startX) {
+			if (lastRightX <= item.visualStartX) {
 				assignedTrack = t;
 				trackLastRightX[t] = rightEdgeX;
 				break;
@@ -268,6 +295,9 @@ export function packEventsIntoTracks(
 			trackIdx: assignedTrack,
 			textWidth: item.textWidth,
 			isRange: item.isRange,
+			isCallout: item.isCallout,
+			cardX: item.cardX,
+			cardW: item.cardW,
 		});
 	}
 
@@ -529,14 +559,13 @@ export function buildGraphSvg(
 		}
 		svg.appendChild(connectorsGroup);
 
-		// Pass 2 — Event Swimlane Pills & Labels
+		// Pass 2 — Event Swimlane Pills & Floating Callout Cards
 		const swimlaneGroup = svgEl("g", { class: "daylio-range-swimlanes" });
 		for (const span of eventTracks.spans) {
 			const x1 = LEFT_PAD + span.startIdx * stride;
 			const x2 = LEFT_PAD + span.endIdx * stride + BAR_WIDTH;
 			const barWidthPx = x2 - x1;
 			const pillWidth = Math.max(BAR_WIDTH, barWidthPx);
-			const totalVisualWidth = Math.max(pillWidth, span.textWidth);
 			const yPill = ganttTop + span.trackIdx * RANGE_TRACK_HEIGHT;
 
 			const pillGroup = svgEl("g", { class: "daylio-range-pill-group" });
@@ -551,21 +580,37 @@ export function buildGraphSvg(
 			});
 			pillGroup.appendChild(rect);
 
-			const fo = svgEl("foreignObject", {
-				x: String(x1),
-				y: String(yPill),
-				width: String(totalVisualWidth),
-				height: String(RANGE_BAR_HEIGHT),
-			});
-			const div = document.createElement("div");
-			div.className = "daylio-range-pill-text";
-			div.textContent = span.event.label ?? "";
 			const dateInfo = span.isRange
 				? `${span.event.date} → ${span.event.endDate}`
 				: span.event.date;
-			div.title = `${span.event.label} (${dateInfo})\nClick to open note`;
-			fo.appendChild(div);
-			pillGroup.appendChild(fo);
+
+			if (span.isCallout) {
+				const fo = svgEl("foreignObject", {
+					x: String(span.cardX),
+					y: String(yPill),
+					width: String(span.cardW),
+					height: String(RANGE_BAR_HEIGHT),
+				});
+				const div = document.createElement("div");
+				div.className = "daylio-range-callout-card";
+				div.textContent = span.event.label ?? "";
+				div.title = `${span.event.label} (${dateInfo})\nClick to open note`;
+				fo.appendChild(div);
+				pillGroup.appendChild(fo);
+			} else {
+				const fo = svgEl("foreignObject", {
+					x: String(x1),
+					y: String(yPill),
+					width: String(pillWidth),
+					height: String(RANGE_BAR_HEIGHT),
+				});
+				const div = document.createElement("div");
+				div.className = "daylio-range-pill-text";
+				div.textContent = span.event.label ?? "";
+				div.title = `${span.event.label} (${dateInfo})\nClick to open note`;
+				fo.appendChild(div);
+				pillGroup.appendChild(fo);
+			}
 
 			const titleEl = svgEl("title");
 			titleEl.textContent = `${span.event.label} (${dateInfo})\nClick to open note`;

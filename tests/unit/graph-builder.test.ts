@@ -211,6 +211,25 @@ describe("packEventsIntoTracks", () => {
 		expect(spans[0]?.trackIdx).toBe(0);
 		expect(spans[1]?.trackIdx).toBe(1);
 	});
+
+	it("marks narrow range events as isCallout = true and wide range events as isCallout = false", () => {
+		const d = days(
+			"2024-08-01", "2024-08-02", "2024-08-03", "2024-08-04",
+			"2024-08-05", "2024-08-06", "2024-08-07", "2024-08-08",
+		);
+		// Short event: span 1 day (width 20px < text 80px) -> isCallout = true
+		// Wide event: span 7 days (width 140px > text 50px) -> isCallout = false
+		const events: VaultEvent[] = [
+			{ date: "2024-08-01", endDate: "2024-08-02", isRange: true, label: "Short Narrow Event", filePath: "1.md" },
+			{ date: "2024-08-01", endDate: "2024-08-08", isRange: true, label: "Wide Event", filePath: "2.md" },
+		];
+		const { spans } = packEventsIntoTracks(events, d, 20, 8, (t) => t.length * 5);
+		const shortSpan = spans.find((s) => s.event.label === "Short Narrow Event");
+		const wideSpan = spans.find((s) => s.event.label === "Wide Event");
+		expect(shortSpan?.isCallout).toBe(true);
+		expect(wideSpan?.isCallout).toBe(false);
+	});
 });
+
 
 
