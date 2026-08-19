@@ -2,7 +2,7 @@
 
 [![Download Demo Vault](https://img.shields.io/badge/Demo_Vault-Download_Example_Vault-purple?style=for-the-badge&logo=obsidian)](../../releases/latest)
 
-Renders your [Daylio](https://daylio.app) mood history as a colour-coded
+Renders your [Daylio](https://daylio.net/) mood history as a colour-coded
 graph inside Obsidian. Notes in your vault can annotate the graph with
 labelled, clickable markers at the dates they correspond to.
 
