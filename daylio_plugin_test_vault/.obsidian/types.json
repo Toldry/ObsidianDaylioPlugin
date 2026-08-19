@@ -1,9 +1,0 @@
-{
-  "types": {
-    "aliases": "aliases",
-    "cssclasses": "multitext",
-    "tags": "tags",
-    "daylio_event": "multitext",
-    "daylio_end": "date"
-  }
-}

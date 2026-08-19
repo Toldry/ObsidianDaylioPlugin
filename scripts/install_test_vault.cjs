@@ -2,7 +2,7 @@
 
 const fs = require('fs')
 
-const obsidian_vault_path = 'daylio_plugin_test_vault/.obsidian/plugins/daylio-mood-graph/'
+const obsidian_vault_path = 'obsidian_daylio_plugin_test_vault/.obsidian/plugins/daylio-mood-graph/'
 const build_path = 'build/'
 const build_files = [
     'main.js',

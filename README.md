@@ -200,34 +200,22 @@ in one step.
 
 The test suite uses [Vitest](https://vitest.dev) and requires no Obsidian
 runtime — the Obsidian API is replaced by a minimal stub for unit tests, and
-the integration tests read real files directly from `daylio_plugin_test_vault/`.
+the integration tests read real files directly from `obsidian_daylio_plugin_test_vault/`.
 
-```bash
-npm test                # run all tests once (unit + integration)
-npm run test:watch      # re-run on every file save
-npm run test:coverage   # run with coverage report
-```
+---
 
-#### Test structure
+## Technical Details
 
-```
-tests/
-├── unit/
-│   ├── csv-parser.test.ts      isMoodLevel, parseCsvLine,
-│   │                           parseDaylioCsv, groupByDay
-│   └── vault-scanner.test.ts   scanVaultEvents (with mock App)
-├── integration/
-│   └── test-vault.test.ts      real CSV and real vault notes
-└── helpers/
-    └── vault-reader.ts         filesystem helper used by integration tests
-```
+### Architecture & Data Flow
 
-Unit tests cover the CSV parser and vault scanner logic using a mock Obsidian
-`App` object. Integration tests read `daylio_plugin_test_vault/attachments/daylio_export.csv`
-and all the `.md` notes in `daylio_plugin_test_vault/` to verify end-to-end
+1. **`DaylioGraphView`** (`src/graph-view.ts`): Extends `ItemView` (`VIEW_TYPE_DAYLIO = "daylio-mood-graph"`). Manages layout, controls (zoom slider/buttons, event checkbox), tooltip rendering, and horizontal scroll sync.
+2. **`buildGraphSvg`** (`src/graph-builder.ts`): Pure synchronous function. Builds SVG element tree containing date headers, lane dividers, mood bars, month lines, event connector lines, event pills/cards, and hover overlays.
+3. **`scanVaultEvents`** (`src/vault-scanner.ts`): Scans the vault for dated notes (`YYYY-MM-DD` in filename or `daylio_start` property). Parses `daylio_event` and `daylio_events` properties (including ranges like `Label | 2024-01-01 -> 2024-01-15`, `to`, `..`, and ongoing ranges).
+4. **`parseDaylioCsv` & `groupByDay`** (`src/csv-parser.ts`): Parses Daylio CSV exports, normalizes moods, and groups entries by chronological dates.
+5. **Testing**: Unit tests run against pure modules using mock `App` object. Integration tests read `obsidian_daylio_plugin_test_vault/attachments/daylio_export.csv` and all the `.md` notes in `obsidian_daylio_plugin_test_vault/` to verify end-to-end
 behaviour against real data, including specific anchor points (known entry
 counts, dates, and mood distributions).
 
 The SVG rendering inside `buildGraphSvg` is not covered by automated tests
 as it depends on a live browser DOM; test it manually by opening the test
-vault in Obsi
+vault in Obsidian.

@@ -4,7 +4,7 @@ const fs = require("fs");
 const path = require("path");
 
 const rootDir = path.resolve(__dirname, "..");
-const vaultDir = path.join(rootDir, "daylio_turing_test_vault");
+const vaultDir = path.join(rootDir, "obsidian_daylio_plugin_test_vault");
 const entriesDir = path.join(vaultDir, "entries");
 const attachmentsDir = path.join(vaultDir, "attachments");
 const obsidianPluginDir = path.join(vaultDir, ".obsidian", "plugins", "daylio-mood-graph");
@@ -276,7 +276,10 @@ function generateCsvData(startDateStr, endDateStr) {
 
 		const rCount = rng();
 		let entryCount = 1;
-		if (rCount < 0.15) {
+		const isBoundaryDate = (isoDate === startDateStr || isoDate === endDateStr);
+		const isClusterDate = (isoDate >= "1952-07-10" && isoDate <= "1952-07-14");
+
+		if (rCount < 0.15 && !isBoundaryDate && !isClusterDate) {
 			// 15% lacuna (0 entries)
 			entryCount = 0;
 		} else if (rCount < 0.15 + 0.04) {
@@ -741,13 +744,19 @@ const VAULT_ENTRIES = [
 			"The bodily effects of the daily stilboestrol injections are wretched beyond description; my breasts are swelling and I feel an all-pervading physical lethargy. Tried to work on non-linear equations, but the nausea made concentration impossible. Must endure this with stoicism.",
 	},
 	{
-		filename: "1952-07-05 Escape to Norway with Kjell Nilsen.md",
+		filename: "1952-07-10 Escape to Norway with Kjell Nilsen.md",
 		subfolder: "holidays",
 		frontmatter: {
-			daylio_event: "Fjord Trekking with Kjell Nilsen | 1952-07-05 -> 1952-07-30",
+			daylio_event: "Arrival in Bergen with Kjell",
 		},
 		content:
 			"Escaped England for the dramatic fjords and crisp northern air of Norway. Met a delightful young Norwegian friend, Kjell Nilsen, in Bergen and spent weeks hiking along the mountain trails. For the first time in months, I can breathe without shame.",
+	},
+	{
+		filename: "1952-07-11 Walking along the Fjord.md",
+		subfolder: "holidays",
+		content:
+			"Gentle walk along the waterside in the morning mist. The silence is profound.",
 	},
 	{
 		filename: "1952-07-12 Bergen Trail Hike.md",
@@ -757,6 +766,18 @@ const VAULT_ENTRIES = [
 		},
 		content:
 			"Kjell and I hiked up above the cloud line on the mountains surrounding Bergen. The pure Scandinavian sunlight and pine scents are wonderful medicine after the bleakness of Manchester courts. We laughed freely all afternoon.",
+	},
+	{
+		filename: "1952-07-13 Rest Day at the Cabin.md",
+		subfolder: "holidays",
+		content:
+			"Rain on the roof all morning. Spent hours reading and sketching pine cone spirals.",
+	},
+	{
+		filename: "1952-07-14 Coastal Boat Ride.md",
+		subfolder: "holidays",
+		content:
+			"Took a small wooden ferry across the inlet. The cool sea spray was invigorating.",
 	},
 	{
 		filename: "1953-03-31 End of Hormone Probation.md",
@@ -810,6 +831,46 @@ const VAULT_ENTRIES = [
 		},
 		content:
 			"Spent the afternoon working on the morphogenesis of sunflower seed phyllotaxis on the Manchester machine. The June garden at Hollymeade is peaceful and full of blooming roses. Left an apple on the bedside table before retiring for the night.",
+	},
+	{
+		filename: "1935-12-25 Christmas Before CSV Range.md",
+		frontmatter: {
+			daylio_event: "Before CSV range",
+		},
+		content:
+			"Winter holiday at Guildford before the new academic term. Working on early logic proofs.",
+	},
+	{
+		filename: "1955-12-31 New Year After CSV Range.md",
+		frontmatter: {
+			daylio_event: "After CSV range",
+		},
+		content:
+			"Testing future date handling outside data boundaries.",
+	},
+	{
+		filename: "1944-13-45 Invalid Date Format.md",
+		frontmatter: {
+			daylio_event: "Should be ignored — invalid date",
+		},
+		content:
+			"Checking scanner behavior on invalid date syntax.",
+	},
+	{
+		filename: "1941-03-01 Antrohpic Founded.md",
+		frontmatter: {
+			daylio_event: "Anthropic founded",
+		},
+		content:
+			"Duplicate date note test entry.",
+	},
+	{
+		filename: "1941-03-01 Anthropic Founded.md",
+		frontmatter: {
+			daylio_event: "Anthropic founded",
+		},
+		content:
+			"Duplicate date note test entry.",
 	},
 ];
 
@@ -879,6 +940,19 @@ function main() {
 		fs.writeFileSync(filePath, fullNote, "utf8");
 		noteCount++;
 	}
+
+	// Non-dated notes to test filename prefix filters
+	fs.writeFileSync(
+		path.join(vaultDir, "Meeting Notes - Research Review.md"),
+		"# Meeting Notes\n\nDiscussion on laboratory setup.",
+		"utf8"
+	);
+	fs.writeFileSync(
+		path.join(vaultDir, "Ideas and Scratchpad.md"),
+		"# Ideas\n\nNotes and reflections.",
+		"utf8"
+	);
+
 	console.log(`Generated ${noteCount} authentic markdown diary notes across ${entriesDir}`);
 
 	// 5. Configure Obsidian Vault Settings

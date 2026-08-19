@@ -12,8 +12,6 @@
 		"test:coverage": "vitest run --coverage",
 		"install:test-vault": "node \"scripts/install_test_vault.cjs\"",
 		"build:test-vault": "npm run build && npm run install:test-vault",
-		"install:turing-vault": "node \"scripts/install_turing_vault.cjs\"",
-		"build:turing-vault": "npm run build && npm run install:turing-vault",
 		"install:custom-vault": "node \"scripts/install_custom_vault.cjs\"",
 		"build:custom-vault": "npm run build && npm run install:custom-vault",
 		"lint": "eslint src/ --ext .ts"

@@ -73,7 +73,7 @@ daylio-obsidian-plugin/
 │   │   └── vault-scanner.test.ts ← Unit tests: scanVaultEvents (with mock App)
 │   └── integration/
 │       └── test-vault.test.ts   ← Integration tests against real vault files
-├── daylio_plugin_test_vault/    ← Test vault (open this in Obsidian to test)
+├── obsidian_daylio_plugin_test_vault/ ← Test vault (open this in Obsidian to test)
 │   ├── .obsidian/
 │   │   └── plugins/
 │   │       └── daylio-mood-graph/   ← Compiled plugin installed here
@@ -168,11 +168,11 @@ Or manually:
 ```bash
 # Unix/macOS
 cp build/main.js build/main.js.map manifest.json styles.css \
-  daylio_plugin_test_vault/.obsidian/plugins/daylio-mood-graph/
+  obsidian_daylio_plugin_test_vault/.obsidian/plugins/daylio-mood-graph/
 
 # PowerShell
 Copy-Item build\main.js, build\main.js.map, manifest.json, styles.css `
-  daylio_plugin_test_vault\.obsidian\plugins\daylio-mood-graph\
+  obsidian_daylio_plugin_test_vault\.obsidian\plugins\daylio-mood-graph\
 ```
 
 Then reload Obsidian (Ctrl+R / Cmd+R) while the test vault is open.
@@ -250,7 +250,7 @@ The plugin can't run a full Obsidian runtime in CI, so the test strategy is:
    `tests/__mocks__/obsidian.ts` — a minimal stub that satisfies the
    TypeScript compiler without needing a real Obsidian runtime.
 
-2. **Integration tests** read the actual files in `daylio_plugin_test_vault/`
+2. **Integration tests** read the actual files in `obsidian_daylio_plugin_test_vault/`
    (the real CSV and the real markdown notes) using Node.js `fs`. A helper
    (`tests/helpers/vault-reader.ts`) mirrors the logic of `scanVaultEvents` on
    plain filesystem paths, so the integration tests can verify end-to-end

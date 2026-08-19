@@ -18,8 +18,8 @@ vitest.config.ts.timestamp*.mjs
 .idea/
 
 # Obsidian workspace state (personal, not shared)
-daylio_plugin_test_vault/.obsidian/workspace.json
-daylio_plugin_test_vault/.obsidian/workspace-mobile.json
+obsidian_daylio_plugin_test_vault/.obsidian/workspace.json
+obsidian_daylio_plugin_test_vault/.obsidian/workspace-mobile.json
 
 # Local environment variables
 .env
@@ -27,5 +27,4 @@ daylio_plugin_test_vault/.obsidian/workspace-mobile.json
 .env.*.local
 
 # Built obsidian files
-daylio_plugin_test_vault/.obsidian/plugins/daylio-mood-graph/
-!daylio_plugin_test_vault/.obsidian/plugins/daylio-mood-graph/data.json
+obsidian_daylio_plugin_test_vault/.obsidian/plugins/daylio-mood-graph/

@@ -1,0 +1,3 @@
+# Ideas
+
+Notes and reflections.

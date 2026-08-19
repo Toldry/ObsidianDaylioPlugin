@@ -91,17 +91,28 @@ export function readVaultEventsFromDisk(
 ): VaultEventOnDisk[] {
 	const events: VaultEventOnDisk[] = [];
 
-	const filenames = fs
-		.readdirSync(vaultPath)
-		.filter((name) => name.endsWith(".md"))
-		.sort(); // alphabetical → deterministic order
+	function collectFiles(dir: string): string[] {
+		const result: string[] = [];
+		const entries = fs.readdirSync(dir, { withFileTypes: true });
+		for (const entry of entries) {
+			const fullPath = path.join(dir, entry.name);
+			if (entry.isDirectory()) {
+				result.push(...collectFiles(fullPath));
+			} else if (entry.isFile() && entry.name.endsWith(".md")) {
+				result.push(fullPath);
+			}
+		}
+		return result;
+	}
 
-	for (const filename of filenames) {
+	const filePaths = collectFiles(vaultPath).sort();
+
+	for (const filePath of filePaths) {
+		const filename = path.basename(filePath);
 		const basename = filename.replace(/\.md$/, "");
 		const dateMatch = basename.match(DATE_PREFIX_RE);
 		if (!dateMatch?.[1]) continue;
 
-		const filePath = path.join(vaultPath, filename);
 		const content = fs.readFileSync(filePath, "utf8");
 		const frontmatter = parseFrontmatter(content);
 
