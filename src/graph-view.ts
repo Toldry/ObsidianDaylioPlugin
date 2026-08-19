@@ -613,7 +613,7 @@ export class DaylioGraphView extends ItemView {
 		},
 	): void {
 		if (!this.scrollContainer || this.cachedDays.length === 0) return;
-		// log(
+		// log.debug(
 		// 	"quickRedraw:", this.plugin.settings.barWidth, "→", newWidth,
 		// 	anchor ? "(cursor-anchored)" : "(absolute-position scroll)",
 		// );

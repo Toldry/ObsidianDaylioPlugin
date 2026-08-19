@@ -59,6 +59,13 @@ export {
 	type AnchorParams,
 	type ScrollResult,
 } from "./scroll-math";
+export {
+	log,
+	logDebug,
+	logInfo,
+	logWarn,
+	logError,
+} from "./log";
 
 export default class DaylioGraphPlugin extends Plugin {
 	settings: DaylioGraphSettings = DEFAULT_SETTINGS;

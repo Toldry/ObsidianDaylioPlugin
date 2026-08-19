@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { App, TFile } from "obsidian";
-import { scanVaultEvents } from "../../src/main";
+import { scanVaultEvents, parseEventString } from "../../src/main";
 
 // ─── Mock App factory ────────────────────────────────────────────────
 
@@ -213,14 +213,14 @@ describe("scanVaultEvents", () => {
 		// itself returns both to let the caller decide which wins.
 		const app = buildMockApp([
 			{
-				basename: "2021-03-01 Anthropic Founded",
-				path: "2021-03-01 Anthropic Founded.md",
-				frontmatter: { daylio_event: "Anthropic founded" },
+				basename: "2021-03-01 Shift Report A",
+				path: "2021-03-01 Shift Report A.md",
+				frontmatter: { daylio_event: "Shift handover A" },
 			},
 			{
-				basename: "2021-03-01 Antrohpic Founded",
-				path: "2021-03-01 Antrohpic Founded.md",
-				frontmatter: { daylio_event: "Anthropic founded" },
+				basename: "2021-03-01 Shift Report B",
+				path: "2021-03-01 Shift Report B.md",
+				frontmatter: { daylio_event: "Shift handover B" },
 			},
 		]);
 		const events = scanVaultEvents(app);
@@ -320,7 +320,7 @@ describe("scanVaultEvents — scanDir filtering", () => {
 		expect(events).toHaveLength(2);
 	});
 
-	it("parses daylio_event list properties and daylio_end property", () => {
+	it("parses daylio_events list properties with pipeline range syntax", () => {
 		const app = buildMockApp([
 			{
 				basename: "2024-08-12 Vacation",
@@ -330,7 +330,6 @@ describe("scanVaultEvents — scanDir filtering", () => {
 						"Got a cat",
 						"Summer Trip | 2024-08-12 -> 2024-08-28",
 					],
-					daylio_end: "2024-08-28",
 				},
 			},
 		]);
@@ -338,8 +337,8 @@ describe("scanVaultEvents — scanDir filtering", () => {
 		expect(events).toHaveLength(2);
 		expect(events[0]).toEqual({
 			date: "2024-08-12",
-			endDate: "2024-08-28",
-			isRange: true,
+			endDate: undefined,
+			isRange: undefined,
 			label: "Got a cat",
 			filePath: "2024-08-12 Vacation.md",
 		});
@@ -391,5 +390,53 @@ describe("scanVaultEvents — scanDir filtering", () => {
 		expect(events[0]?.date).toBe("2024-05-14");
 		expect(events[0]?.endDate).toBeUndefined();
 		expect(events[0]?.isRange).toBeFalsy();
+	});
+
+	it("logs a warning and treats range event as point event when end date is earlier than start date", () => {
+		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+		const app = buildMockApp([
+			{
+				basename: "2024-08-01 Reversed Dates",
+				path: "2024-08-01 Reversed Dates.md",
+				frontmatter: {
+					daylio_event: "Bad Range | 2024-08-20 -> 2024-08-10",
+				},
+			},
+		]);
+
+		const events = scanVaultEvents(app);
+		expect(events).toHaveLength(1);
+		expect(events[0]).toEqual({
+			date: "2024-08-20",
+			endDate: undefined,
+			isRange: undefined,
+			label: "Bad Range",
+			filePath: "2024-08-01 Reversed Dates.md",
+		});
+
+		expect(warnSpy).toHaveBeenCalledWith(
+			"[daylio]",
+			expect.stringContaining("has end date (2024-08-10) earlier than start date (2024-08-20)")
+		);
+
+		warnSpy.mockRestore();
+	});
+
+	it("logs a warning and treats ongoing range starting in the future as a point event", () => {
+		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+		const parsed = parseEventString("Future Project | 2099-01-01 -> ", "2024-01-01");
+		expect(parsed).toEqual({
+			label: "Future Project",
+			startDate: "2099-01-01",
+		});
+
+		expect(warnSpy).toHaveBeenCalledWith(
+			"[daylio]",
+			expect.stringContaining("in the future")
+		);
+
+		warnSpy.mockRestore();
 	});
 });

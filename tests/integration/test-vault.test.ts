@@ -43,9 +43,9 @@ describe("parseFrontmatter (helper)", () => {
 	});
 
 	it("extracts an unquoted string value", () => {
-		const md = "---\ndaylio_event: Anthropic founded\n---\nBody.";
+		const md = "---\ndaylio_event: Company founded\n---\nBody.";
 		const fm = parseFrontmatter(md);
-		expect(fm?.["daylio_event"]).toBe("Anthropic founded");
+		expect(fm?.["daylio_event"]).toBe("Company founded");
 	});
 
 	it("extracts multiple keys", () => {
@@ -231,7 +231,7 @@ describe("Vault events integration (test vault notes)", () => {
 		);
 	});
 
-	it("detects range event defined via daylio_start and daylio_end frontmatter on 1941-03-15", () => {
+	it("detects range event defined via pipeline syntax on 1941-03-15", () => {
 		const ev = events.find((e) => e.date === "1941-03-15");
 		expect(ev).toBeDefined();
 		expect(ev?.label).toBe("Engagement to Joan Clarke");

@@ -438,9 +438,8 @@ const VAULT_ENTRIES = [
 	{
 		filename: "1941-03-15 Proposed to Joan Clarke.md",
 		frontmatter: {
-			daylio_start: "1941-03-15",
-			daylio_end: "1941-08-25",
-			daylio_event: "Engagement to Joan Clarke",
+			daylio_event:
+				"Engagement to Joan Clarke | 1941-03-15 -> 1941-08-25",
 		},
 		content:
 			"Asked Joan to marry me during a walk past the lake after our shift, and to my delight she accepted. She is the quickest mind in Hut 8 and understands my oddities better than anyone in England. Gave her a ring over the weekend.",
@@ -857,17 +856,17 @@ const VAULT_ENTRIES = [
 			"Checking scanner behavior on invalid date syntax.",
 	},
 	{
-		filename: "1941-03-01 Antrohpic Founded.md",
+		filename: "1941-03-01 Hut 8 Shift Handover A.md",
 		frontmatter: {
-			daylio_event: "Anthropic founded",
+			daylio_event: "Hut 8 Shift Handover Note A",
 		},
 		content:
 			"Duplicate date note test entry.",
 	},
 	{
-		filename: "1941-03-01 Anthropic Founded.md",
+		filename: "1941-03-01 Hut 8 Shift Handover B.md",
 		frontmatter: {
-			daylio_event: "Anthropic founded",
+			daylio_event: "Hut 8 Shift Handover Note B",
 		},
 		content:
 			"Duplicate date note test entry.",

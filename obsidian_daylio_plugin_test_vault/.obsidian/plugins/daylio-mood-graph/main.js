@@ -35,6 +35,11 @@ __export(main_exports, {
   default: () => DaylioGraphPlugin,
   groupByDay: () => groupByDay,
   isMoodLevel: () => isMoodLevel,
+  log: () => log,
+  logDebug: () => logDebug,
+  logError: () => logError,
+  logInfo: () => logInfo,
+  logWarn: () => logWarn,
   packEventsIntoTracks: () => packEventsIntoTracks,
   packRangeEventsIntoTracks: () => packRangeEventsIntoTracks,
   parseCsvLine: () => parseCsvLine,
@@ -167,21 +172,30 @@ function groupByDay(entries) {
   return days;
 }
 
+// src/log.ts
+var logDebug = (...args) => console.debug("[daylio]", ...args);
+var logInfo = (...args) => console.info("[daylio]", ...args);
+var logWarn = (...args) => console.warn("[daylio]", ...args);
+var logError = (...args) => console.error("[daylio]", ...args);
+var log = {
+  debug: logDebug,
+  info: logInfo,
+  warn: logWarn,
+  error: logError
+};
+
 // src/vault-scanner.ts
 var DATE_PREFIX_REGEX = /^(\d{4}-\d{2}-\d{2})/;
 var ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 var DATE_RANGE_REGEX = /^(\d{4}-\d{2}-\d{2})\s*(?:->|\.\.|to)\s*(\d{4}-\d{2}-\d{2})$/;
 var ONGOING_RANGE_REGEX = /^(\d{4}-\d{2}-\d{2})\s*(?:->|\.\.|to)\s*$/;
-function parseEventString(rawStr, defaultStartDate, noteEndDate) {
+function parseEventString(rawStr, defaultStartDate) {
   var _a2;
   const trimmed = rawStr.trim();
   if (!trimmed.includes("|")) {
-    const isRange2 = Boolean(noteEndDate && noteEndDate >= defaultStartDate);
     return {
       label: trimmed,
-      startDate: defaultStartDate,
-      endDate: isRange2 ? noteEndDate : void 0,
-      isRange: isRange2
+      startDate: defaultStartDate
     };
   }
   const parts = trimmed.split("|").map((p) => p.trim());
@@ -191,20 +205,15 @@ function parseEventString(rawStr, defaultStartDate, noteEndDate) {
     const label = parts.slice(0, -1).join(" | ").trim();
     const startDate = rangeMatch[1];
     const endDate = rangeMatch[2];
-    const isRange2 = endDate >= startDate;
-    return {
-      label,
-      startDate,
-      endDate: isRange2 ? endDate : void 0,
-      isRange: isRange2
-    };
-  }
-  const ongoingMatch = lastPart.match(ONGOING_RANGE_REGEX);
-  if (ongoingMatch == null ? void 0 : ongoingMatch[1]) {
-    const label = parts.slice(0, -1).join(" | ").trim();
-    const startDate = ongoingMatch[1];
-    const todayStr = formatISODate(/* @__PURE__ */ new Date());
-    const endDate = todayStr >= startDate ? todayStr : startDate;
+    if (endDate < startDate) {
+      logWarn(
+        `Event "${label || rawStr}" has end date (${endDate}) earlier than start date (${startDate}). Treating as point event on ${startDate}.`
+      );
+      return {
+        label,
+        startDate
+      };
+    }
     return {
       label,
       startDate,
@@ -212,23 +221,38 @@ function parseEventString(rawStr, defaultStartDate, noteEndDate) {
       isRange: true
     };
   }
-  if (ISO_DATE_REGEX.test(lastPart)) {
+  const ongoingMatch = lastPart.match(ONGOING_RANGE_REGEX);
+  if (ongoingMatch == null ? void 0 : ongoingMatch[1]) {
     const label = parts.slice(0, -1).join(" | ").trim();
-    const startDate = lastPart;
-    const isRange2 = Boolean(noteEndDate && noteEndDate >= startDate);
+    const startDate = ongoingMatch[1];
+    const todayStr = formatISODate(/* @__PURE__ */ new Date());
+    if (startDate > todayStr) {
+      logWarn(
+        `Ongoing event "${label || rawStr}" has start date (${startDate}) in the future (today is ${todayStr}). Treating as point event on ${startDate}.`
+      );
+      return {
+        label,
+        startDate
+      };
+    }
     return {
       label,
       startDate,
-      endDate: isRange2 ? noteEndDate : void 0,
-      isRange: isRange2
+      endDate: todayStr,
+      isRange: true
     };
   }
-  const isRange = Boolean(noteEndDate && noteEndDate >= defaultStartDate);
+  if (ISO_DATE_REGEX.test(lastPart)) {
+    const label = parts.slice(0, -1).join(" | ").trim();
+    const startDate = lastPart;
+    return {
+      label,
+      startDate
+    };
+  }
   return {
     label: trimmed,
-    startDate: defaultStartDate,
-    endDate: isRange ? noteEndDate : void 0,
-    isRange
+    startDate: defaultStartDate
   };
 }
 function formatISODate(date) {
@@ -281,12 +305,10 @@ function scanVaultEvents(app, scanDir) {
   );
   for (const file of files) {
     const dateMatch = file.basename.match(DATE_PREFIX_REGEX);
+    const startDate = dateMatch == null ? void 0 : dateMatch[1];
+    if (!startDate) continue;
     const cache = app.metadataCache.getFileCache(file);
     const frontmatter = cache == null ? void 0 : cache.frontmatter;
-    const startProp = parseFrontmatterDate(frontmatter == null ? void 0 : frontmatter["daylio_start"]);
-    const startDate = startProp != null ? startProp : dateMatch == null ? void 0 : dateMatch[1];
-    if (!startDate) continue;
-    const noteEndDate = parseFrontmatterDate(frontmatter == null ? void 0 : frontmatter["daylio_end"]);
     const rawItems = [];
     collectStringItems(frontmatter == null ? void 0 : frontmatter["daylio_event"], rawItems);
     collectStringItems(frontmatter == null ? void 0 : frontmatter["daylio_events"], rawItems);
@@ -297,7 +319,7 @@ function scanVaultEvents(app, scanDir) {
       });
     } else {
       for (const rawItem of rawItems) {
-        const parsed = parseEventString(rawItem, startDate, noteEndDate);
+        const parsed = parseEventString(rawItem, startDate);
         events.push({
           date: parsed.startDate,
           endDate: parsed.endDate,

@@ -126,9 +126,8 @@ export function readVaultEventsFromDisk(
 				filePath,
 			});
 		} else {
-			const noteEndDate = parseFrontmatterDate(frontmatter?.["daylio_end"]);
 			for (const item of rawItems) {
-				const parsed = parseEventString(item, dateMatch[1], noteEndDate);
+				const parsed = parseEventString(item, dateMatch[1]);
 				events.push({
 					date: parsed.startDate,
 					endDate: parsed.endDate,

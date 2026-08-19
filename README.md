@@ -65,7 +65,7 @@ attachments/daylio_export.csv
 
 Click the smiley-face icon in the left ribbon, or run the command
 **Daylio Mood Graph: Open mood graph** from the command palette
-(Ctrl+P / Cmd+P).
+(<kbd>Ctrl</kbd>+<kbd>P</kbd> / <kbd>Cmd</kbd>+<kbd>P</kbd>).
 
 The graph opens as a horizontal split pane below the current editor.
 
@@ -80,8 +80,8 @@ horizontal scroll gesture on a trackpad.
 |---|---|
 | Toolbar slider | Smooth zoom, persists between sessions |
 | Toolbar − / + buttons | Step zoom |
-| Ctrl + scroll wheel | Zoom centred on the cursor |
-| Right-click + scroll wheel | Same as Ctrl + scroll |
+| <kbd>Ctrl</kbd> + scroll wheel | Zoom centred on the cursor |
+| Right-click + scroll wheel | Same as <kbd>Ctrl</kbd> + scroll |
 
 At narrow bar widths (≤ 0.5 px per day) only year labels are shown to keep
 the header readable.
@@ -112,23 +112,22 @@ daylio_event:
 
 ### 2. Range Events (Multi-Day Timeline Spans / Gantt Swimlanes)
 
-For multi-day events that span across a date range ($T_{\text{start}} \rightarrow T_{\text{end}}$), use any of these natural formats:
+For multi-day events that span across a date range ($T_{\text{start}} \rightarrow T_{\text{end}}$), use the inline pipe (`|`) syntax in frontmatter:
 
-#### Option A: Native Properties UI (`daylio_end`)
 ```yaml
 ---
-daylio_event: Summer Vacation
-daylio_end: 2024-08-28
+daylio_event: Summer Vacation | 2024-08-12 -> 2024-08-28
 ---
 ```
-*(Uses Obsidian's native Date picker for `daylio_end`. The start date defaults to the note's filename date prefix or `daylio_start`.)*
 
-#### Option B: Inline Pipe Syntax in Properties List
+You can also combine point events and multiple range events in list properties:
+
 ```yaml
 ---
 daylio_event:
   - Got a cat
   - Summer Vacation | 2024-08-12 -> 2024-08-28
+  - Ongoing Project | 2024-09-01 ->
 ---
 ```
 
@@ -160,21 +159,7 @@ graph toolbar without losing your scroll position.
 | Mood colours | A colour picker for each of the five mood levels | Daylio palette |
 | Reset colours | Restores the default Daylio colour palette | — |
 
-The zoom level is controlled by the toolbar slider and persists between
-sessions.
-
-## Mood levels and default colours
-
-| Level | Default colour |
-|---|---|
-| <span style="color:#f78c1e">Rad</span> | `#f78c1e` (orange) |
-| <span style="color:#41a766">Good</span> | `#41a766` (green) |
-| <span style="color:#9056a3">Meh</span> | `#9056a3` (purple) |
-| <span style="color:#5579a7">Bad</span> | `#5579a7` (blue) |
-| <span style="color:#6a777c">Awful</span> | `#6a777c` (grey) |
-
-All colours are customisable in settings and respect your Obsidian theme for
-surrounding UI elements.
+The zoom level is controlled by the toolbar slider.
 
 ## Compatibility
 
@@ -212,7 +197,7 @@ the integration tests read real files directly from `obsidian_daylio_plugin_test
 
 1. **`DaylioGraphView`** (`src/graph-view.ts`): Extends `ItemView` (`VIEW_TYPE_DAYLIO = "daylio-mood-graph"`). Manages layout, controls (zoom slider/buttons, event checkbox), tooltip rendering, and horizontal scroll sync.
 2. **`buildGraphSvg`** (`src/graph-builder.ts`): Pure synchronous function. Builds SVG element tree containing date headers, lane dividers, mood bars, month lines, event connector lines, event pills/cards, and hover overlays.
-3. **`scanVaultEvents`** (`src/vault-scanner.ts`): Scans the vault for dated notes (`YYYY-MM-DD` in filename or `daylio_start` property). Parses `daylio_event` and `daylio_events` properties (including ranges like `Label | 2024-01-01 -> 2024-01-15`, `to`, `..`, and ongoing ranges).
+3. **`scanVaultEvents`** (`src/vault-scanner.ts`): Scans the vault for dated notes (`YYYY-MM-DD` in filename). Parses `daylio_event` and `daylio_events` properties (including ranges like `Label | 2024-01-01 -> 2024-01-15`, `to`, `..`, and ongoing ranges).
 4. **`parseDaylioCsv` & `groupByDay`** (`src/csv-parser.ts`): Parses Daylio CSV exports, normalizes moods, and groups entries by chronological dates.
 5. **Testing**: Unit tests run against pure modules using mock `App` object. Integration tests read `obsidian_daylio_plugin_test_vault/attachments/daylio_export.csv` and all the `.md` notes in `obsidian_daylio_plugin_test_vault/` to verify end-to-end
 behaviour against real data, including specific anchor points (known entry

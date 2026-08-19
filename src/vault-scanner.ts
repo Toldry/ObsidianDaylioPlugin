@@ -1,5 +1,6 @@
 import { App } from "obsidian";
 import type { VaultEvent } from "./types";
+import { logWarn } from "./log";
 
 /** Matches the YYYY-MM-DD prefix at the start of a filename. */
 export const DATE_PREFIX_REGEX = /^(\d{4}-\d{2}-\d{2})/;
@@ -40,21 +41,16 @@ export interface ParsedEventItem {
  *
  * @param rawStr          - The raw `daylio_event` frontmatter value.
  * @param defaultStartDate - Fallback start date (from filename prefix).
- * @param noteEndDate     - Optional end date from `daylio_end` frontmatter.
  */
 export function parseEventString(
 	rawStr: string,
 	defaultStartDate: string,
-	noteEndDate?: string,
 ): ParsedEventItem {
 	const trimmed = rawStr.trim();
 	if (!trimmed.includes("|")) {
-		const isRange = Boolean(noteEndDate && noteEndDate >= defaultStartDate);
 		return {
 			label: trimmed,
 			startDate: defaultStartDate,
-			endDate: isRange ? noteEndDate : undefined,
-			isRange,
 		};
 	}
 
@@ -67,12 +63,20 @@ export function parseEventString(
 		const label = parts.slice(0, -1).join(" | ").trim();
 		const startDate = rangeMatch[1];
 		const endDate = rangeMatch[2];
-		const isRange = endDate >= startDate;
+		if (endDate < startDate) {
+			logWarn(
+				`Event "${label || rawStr}" has end date (${endDate}) earlier than start date (${startDate}). Treating as point event on ${startDate}.`
+			);
+			return {
+				label,
+				startDate,
+			};
+		}
 		return {
 			label,
 			startDate,
-			endDate: isRange ? endDate : undefined,
-			isRange,
+			endDate,
+			isRange: true,
 		};
 	}
 
@@ -82,11 +86,19 @@ export function parseEventString(
 		const label = parts.slice(0, -1).join(" | ").trim();
 		const startDate = ongoingMatch[1];
 		const todayStr = formatISODate(new Date());
-		const endDate = todayStr >= startDate ? todayStr : startDate;
+		if (startDate > todayStr) {
+			logWarn(
+				`Ongoing event "${label || rawStr}" has start date (${startDate}) in the future (today is ${todayStr}). Treating as point event on ${startDate}.`
+			);
+			return {
+				label,
+				startDate,
+			};
+		}
 		return {
 			label,
 			startDate,
-			endDate,
+			endDate: todayStr,
 			isRange: true,
 		};
 	}
@@ -95,22 +107,16 @@ export function parseEventString(
 	if (ISO_DATE_REGEX.test(lastPart)) {
 		const label = parts.slice(0, -1).join(" | ").trim();
 		const startDate = lastPart;
-		const isRange = Boolean(noteEndDate && noteEndDate >= startDate);
 		return {
 			label,
 			startDate,
-			endDate: isRange ? noteEndDate : undefined,
-			isRange,
 		};
 	}
 
 	// Last part is not a date/range — treat full string (including pipes) as label
-	const isRange = Boolean(noteEndDate && noteEndDate >= defaultStartDate);
 	return {
 		label: trimmed,
 		startDate: defaultStartDate,
-		endDate: isRange ? noteEndDate : undefined,
-		isRange,
 	};
 }
 
@@ -200,14 +206,11 @@ export function scanVaultEvents(app: App, scanDir?: string): VaultEvent[] {
 
 	for (const file of files) {
 		const dateMatch = file.basename.match(DATE_PREFIX_REGEX);
-		const cache = app.metadataCache.getFileCache(file);
-		const frontmatter = cache?.frontmatter;
-
-		const startProp = parseFrontmatterDate(frontmatter?.["daylio_start"]);
-		const startDate = startProp ?? dateMatch?.[1];
+		const startDate = dateMatch?.[1];
 		if (!startDate) continue;
 
-		const noteEndDate = parseFrontmatterDate(frontmatter?.["daylio_end"]);
+		const cache = app.metadataCache.getFileCache(file);
+		const frontmatter = cache?.frontmatter;
 
 		// Extract raw items from daylio_event and daylio_events (string or array)
 		const rawItems: string[] = [];
@@ -222,7 +225,7 @@ export function scanVaultEvents(app: App, scanDir?: string): VaultEvent[] {
 			});
 		} else {
 			for (const rawItem of rawItems) {
-				const parsed = parseEventString(rawItem, startDate, noteEndDate);
+				const parsed = parseEventString(rawItem, startDate);
 				events.push({
 					date: parsed.startDate,
 					endDate: parsed.endDate,
