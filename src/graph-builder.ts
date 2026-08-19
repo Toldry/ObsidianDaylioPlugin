@@ -58,19 +58,7 @@ export const LEFT_PAD = 20;
 /** Right padding (px) added after the last bar column. */
 export const RIGHT_PAD = 20;
 
-/**
- * Curated 6-color palette of distinct purple tones for swimlane track cycling.
- * Each track index maps to a distinct shade of purple so vertically stacked
- * events are distinguishable while maintaining a unified purple theme.
- */
-export const TRACK_COLORS: readonly string[] = [
-	"#7c6fe0",  // Obsidian Purple / Violet (primary)
-	// "#a855f7",  // Bright Amethyst (vibrant)
-	// "#c084fc",  // Orchid / Lilac (light, luminous)
-	// "#6366f1",  // Indigo-Purple (deep cool violet)
-	// "#9333ea",  // Royal Purple (deep, rich)
-	// "#d8b4fe",  // Soft Lavender (pastel)
-];
+
 
 export interface StickyLabelParams {
 	x1: number;
@@ -231,7 +219,6 @@ export interface RangeTooltipData {
 	date: string;
 	endDate?: string;
 	moodSummary: RangeMoodSummary;
-	trackColor: string;
 }
 
 /**
@@ -735,7 +722,6 @@ export function buildGraphSvg(
 		// Event Swimlane Groups (each group contains its vertical connectors, bars/pills, and card)
 		const swimlaneGroup = svgEl("g", { class: "daylio-range-swimlanes" });
 		for (const span of eventTracks.spans) {
-			const trackColor = TRACK_COLORS[span.trackIdx % TRACK_COLORS.length]!;
 			const x1 = LEFT_PAD + span.startIdx * stride;
 			const x2 = LEFT_PAD + span.endIdx * stride + BAR_WIDTH;
 			const barWidthPx = x2 - x1;
@@ -754,7 +740,6 @@ export function buildGraphSvg(
 				date: span.event.date,
 				endDate: span.event.endDate,
 				moodSummary,
-				trackColor,
 			};
 
 			// 1. Vertical Dotted Connector Lines (rendered first inside group so they sit behind bars/pills)
@@ -773,7 +758,6 @@ export function buildGraphSvg(
 					x2: String(cx),
 					y2: String(yTop),
 					class: "daylio-event-connector",
-					stroke: trackColor,
 				}));
 			} else {
 				// Multi-day range event: 2 vertical dotted lines (start date and end date)
@@ -786,7 +770,6 @@ export function buildGraphSvg(
 					x2: String(cxStart),
 					y2: String(yTop),
 					class: "daylio-event-connector",
-					stroke: trackColor,
 				}));
 				pillGroup.appendChild(svgEl("line", {
 					x1: String(cxEnd),
@@ -794,7 +777,6 @@ export function buildGraphSvg(
 					x2: String(cxEnd),
 					y2: String(yTop),
 					class: "daylio-event-connector",
-					stroke: trackColor,
 				}));
 			}
 
@@ -810,8 +792,6 @@ export function buildGraphSvg(
 						height: String(TOP_BAR_HEIGHT),
 						rx: "2.5",
 						ry: "2.5",
-						fill: trackColor,
-						stroke: trackColor,
 					});
 					pillGroup.appendChild(topBar);
 
@@ -825,7 +805,6 @@ export function buildGraphSvg(
 						y1: String(stemY1),
 						x2: String(cx),
 						y2: String(stemY2),
-						stroke: trackColor,
 					});
 					pillGroup.appendChild(stem);
 				}
@@ -852,7 +831,6 @@ export function buildGraphSvg(
 				const div = document.createElement("div");
 				div.className = "daylio-range-callout-card";
 				div.textContent = span.event.label ?? "";
-				div.style.borderColor = trackColor;
 				fo.appendChild(div);
 				pillGroup.appendChild(fo);
 			} else {
@@ -866,9 +844,6 @@ export function buildGraphSvg(
 					height: String(WIDE_PILL_HEIGHT),
 					rx: "4",
 					ry: "4",
-					fill: trackColor,
-					"fill-opacity": "0.25",
-					stroke: trackColor,
 				});
 				pillGroup.appendChild(rect);
 
