@@ -393,5 +393,3 @@ describe("scanVaultEvents — scanDir filtering", () => {
 		expect(events[0]?.isRange).toBeFalsy();
 	});
 });
-
-

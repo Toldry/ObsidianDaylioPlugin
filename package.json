@@ -13,14 +13,19 @@
 		"install:vault": "node \"scripts/build_vault.cjs\"",
 		"build:vault": "npm run build && npm run install:vault",
 		"install:custom": "node \"scripts/install_custom_vault.cjs\"",
-		"build:custom": "npm run build && npm run install:custom"
+		"build:custom": "npm run build && npm run install:custom",
+		"lint": "eslint src/ --ext .ts"
 	},
 	"keywords": [],
 	"license": "MIT",
 	"devDependencies": {
 		"@types/node": "^20.0.0",
+		"@typescript-eslint/eslint-plugin": "^8.67.0",
+		"@typescript-eslint/parser": "^8.67.0",
 		"@vitest/coverage-v8": "^4.1.2",
 		"esbuild": "0.25.5",
+		"eslint": "^9.39.5",
+		"eslint-plugin-obsidianmd": "^0.4.1",
 		"tslib": "2.4.0",
 		"typescript": "^5.8.3",
 		"vitest": "^4.1.2"

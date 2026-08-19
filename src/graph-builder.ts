@@ -11,25 +11,24 @@ import {
 
 // ─── Layout constants ───────────────────────────────────────────────
 
+/** Total height (px) of the mood lane area. */
 const GRAPH_HEIGHT = 200;
+/** Number of mood lanes (one per mood level). */
 const LANE_COUNT = MOOD_LEVELS.length; // 5
+/** Height (px) of each mood lane. */
 const LANE_HEIGHT = GRAPH_HEIGHT / LANE_COUNT; // 40
 /** Fraction of LANE_HEIGHT a mood bar occupies vertically. */
 const MOOD_BAR_FILL_RATIO = 0.6;
+/** Absolute height (px) of each mood bar. */
 const MOOD_BAR_HEIGHT = Math.round(LANE_HEIGHT * MOOD_BAR_FILL_RATIO);
+/** Vertical offset (px) to centre the bar within its lane. */
 const MOOD_BAR_OFFSET = Math.round((LANE_HEIGHT - MOOD_BAR_HEIGHT) / 2);
+/** Height (px) of the date header strip above the graph. */
 const DATE_HEADER_HEIGHT = 14;
+/** Minimum horizontal distance (px) between adjacent month labels. */
 const MIN_MONTH_LABEL_PX = 55;
-const LABEL_FONT_SIZE = 10;        // must match .daylio-event-label font-size
-const LABEL_LINE_HEIGHT_PX = 12;   // LABEL_FONT_SIZE × line-height (1.2)
-const LABEL_INNER_H_PAD = 14;      // padding(4×2) + border(1×2) + slack(4)
-const LABEL_INNER_V_PAD = 8;       // padding(2×2) + border(1×2) + slack(2)
-const LABEL_ROW_GAP = 4;           // vertical gap between label rows
-const LABEL_H_PAD = 6;             // horizontal gap between adjacent labels
-/** Fallback text content width (px) used when canvas measurement is unavailable. */
-const LABEL_DEFAULT_TEXT_WIDTH = 60;
-/** Vertical gap (px) between the bottom of the graph area and the first label row. */
-const LABEL_AREA_GAP = 8;
+/** Font size (px) for event label text — must match .daylio-event-label in CSS. */
+const LABEL_FONT_SIZE = 10;
 /** Maximum corner radius (px) for mood bar rounded rectangles. */
 const BAR_CORNER_RADIUS_MAX = 2;
 /** How many pixels left of a month/year boundary the separator line and label are placed. */
@@ -54,6 +53,7 @@ const DATE_TICK_INTERVAL_FINE = 10;
 const HOVER_DATE_LABEL_OFFSET = 14;
 /** Distance (px) above graphBottom for the hovered-day entry name label. */
 const HOVER_NAME_LABEL_OFFSET = 4;
+/** Left padding (px) before the first bar column. */
 export const LEFT_PAD = 20;
 /** Right padding (px) added after the last bar column. */
 export const RIGHT_PAD = 20;
@@ -122,6 +122,7 @@ export function computeStickyLabelPosition(
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
+/** Create an SVG element and set attributes in one call. */
 function svgEl(tag: string, attrs?: Record<string, string>): SVGElement {
 	const el = document.createElementNS(SVG_NS, tag);
 	if (attrs) {
@@ -200,26 +201,30 @@ export function computeEntrySpans(
 		}
 	}
 
-	// log(
-	// 	"computeEntrySpans:",
-	// 	spans.length, "span(s) from",
-	// 	vaultEvents.length, "vault entr(ies)",
-	// );
 	return spans;
 }
 
+/** Count and percentage of a single mood level within a date range. */
 export interface MoodProportion {
+	/** Which mood this proportion describes. */
 	mood: MoodLevel;
+	/** Absolute count of entries with this mood. */
 	count: number;
+	/** Percentage of total entries (0–100). */
 	percentage: number;
 }
 
+/** Aggregated mood distribution across a date range. */
 export interface RangeMoodSummary {
+	/** Per-mood counts and percentages. */
 	proportions: MoodProportion[];
+	/** Total number of mood entries in the range (may exceed totalDays). */
 	totalEntries: number;
+	/** Number of calendar days in the range. */
 	totalDays: number;
 }
 
+/** Data passed to the tooltip hover callback for rendering. */
 export interface RangeTooltipData {
 	label: string;
 	isRange: boolean;
@@ -274,8 +279,11 @@ export function computeRangeMoodProportions(
 	};
 }
 
+/** Context object passed to `buildGraphSvg()` with colours, callbacks, and flags. */
 export interface GraphBuildContext {
+	/** Hex colour for each mood level. */
 	moodColors: Record<MoodLevel, string>;
+	/** Callback to open a vault file when the user clicks an event. */
 	openFile: (filePath: string) => void;
 	/** When false, event label cards and their connector lines are omitted. */
 	showEventLabels: boolean;
@@ -290,15 +298,25 @@ export interface GraphBuildContext {
 	onEventLeave?: () => void;
 }
 
+/** A labelled event assigned to a specific swimlane track. */
 export interface EventTrackSpan {
+	/** The vault event this span represents. */
 	event: VaultEvent;
+	/** Start index in the `days` array (inclusive). */
 	startIdx: number;
+	/** End index in the `days` array (inclusive). */
 	endIdx: number;
+	/** Zero-based swimlane track index. */
 	trackIdx: number;
+	/** Measured text width (px) of the label. */
 	textWidth: number;
+	/** True when the event spans multiple days. */
 	isRange: boolean;
+	/** True when the label card overflows the date span and floats as a callout. */
 	isCallout: boolean;
+	/** X position of the label card. */
 	cardX: number;
+	/** Width of the label card. */
 	cardW: number;
 }
 
@@ -990,11 +1008,5 @@ export function buildGraphSvg(
 		svg.appendChild(g);
 	}
 
-	// log(
-	// 	"buildGraphSvg: SVG dimensions",
-	// 	graphWidth, "×", totalHeight,
-	// 	"px,", rowTopY.length, "event label row(s),",
-	// 	(performance.now() - buildStart).toFixed(2), "ms",
-	// );
 	return svg;
 }

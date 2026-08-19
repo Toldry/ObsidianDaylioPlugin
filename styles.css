@@ -1,8 +1,7 @@
 /* ─── Daylio Mood Graph Plugin ─────────────────────────────── */
 
-/* TODO: use the CSS variables provided by Obsidian.
- * https://docs.obsidian.md/Reference/CSS+variables/CSS+variables
- */
+/* Uses Obsidian CSS variables for seamless theme matching:
+   https://docs.obsidian.md/Reference/CSS+variables/CSS+variables */
 
 /* Remove the entire view header bar (title + nav arrows + action menu)
    for this view — the tab label already identifies it. */
@@ -286,9 +285,7 @@
 	stroke-dasharray: none;
 }
 
-.daylio-event-diamond {
-	fill: var(--text-accent);
-}
+
 
 .daylio-event-label {
 	font-size: 10px;

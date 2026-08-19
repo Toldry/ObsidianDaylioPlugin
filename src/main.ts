@@ -83,7 +83,10 @@ export default class DaylioGraphPlugin extends Plugin {
 		this.addSettingTab(new DaylioSettingTab(this.app, this));
 	}
 
+	/** Intentionally empty — Obsidian calls this on plugin unload but we
+	 *  have no teardown work beyond what `registerView` handles. */
 	onunload(): void {
+		// No-op: view cleanup is handled by Obsidian's view lifecycle.
 	}
 
 	async loadSettings(): Promise<void> {

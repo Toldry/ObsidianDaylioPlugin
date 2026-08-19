@@ -2,6 +2,8 @@ import { addIcon } from "obsidian";
 import DAYLIO_FACE_SVG from "./daylio-face.svg";
 
 // ─── Custom ribbon icon ──────────────────────────────────────────────
+
+/** Obsidian icon ID registered via `addIcon()` for the ribbon button. */
 const DAYLIO_ICON_ID = "daylio-face";
 // addIcon expects the inner HTML of an <svg> element, not the full document.
 const svgInner = DAYLIO_FACE_SVG.match(/<svg[^>]*>([\s\S]*)<\/svg>/i)?.[1] ?? DAYLIO_FACE_SVG;
@@ -14,17 +16,28 @@ export { DAYLIO_ICON_ID };
 /** The five mood levels Daylio uses, ranked worst → best. */
 export type MoodLevel = "awful" | "bad" | "meh" | "good" | "rad";
 
-export const MOOD_LEVELS: MoodLevel[] = ["awful", "bad", "meh", "good", "rad"];
+/**
+ * Ordered list of all valid mood levels.
+ * Declared `as const` so the array is a readonly tuple whose element
+ * type narrows to the `MoodLevel` union automatically.
+ */
+export const MOOD_LEVELS = ["awful", "bad", "meh", "good", "rad"] as const;
 
+/** A single mood entry parsed from one row of the Daylio CSV export. */
 export interface MoodEntry {
-	date: string;       // "YYYY-MM-DD"
-	time: string;       // "HH:MM"
+	/** ISO date string, e.g. "2024-03-15". */
+	date: string;
+	/** Time of day, e.g. "14:30". */
+	time: string;
+	/** The mood level recorded for this entry. */
 	mood: MoodLevel;
 }
 
 /** A single day, potentially with multiple mood entries. */
 export interface DayData {
+	/** ISO date string for this day. */
 	date: string;
+	/** All mood entries recorded on this day, sorted by time ascending. */
 	entries: MoodEntry[];
 }
 
@@ -38,27 +51,36 @@ export interface DayData {
  * but do not display a text label.
  */
 export interface VaultEvent {
-	date: string;       // "YYYY-MM-DD" (start date or point event date)
-	endDate?: string;   // "YYYY-MM-DD" (set when event spans across a date range)
-	label?: string;     // only set when daylio_event frontmatter is present
-	filePath: string;   // path inside vault so we can navigate to it
-	isRange?: boolean;  // true when endDate is present and endDate >= date
+	/** ISO date string — start date or point-event date. */
+	date: string;
+	/** ISO date string — set when event spans across a date range. */
+	endDate?: string;
+	/** Human-readable label; only set when `daylio_event` frontmatter is present. */
+	label?: string;
+	/** Vault-relative path so we can navigate to it. */
+	filePath: string;
+	/** True when `endDate` is present and `endDate >= date`. */
+	isRange?: boolean;
 }
 
 // ─── Default colours (matching the Daylio palette) ──────────────────
 
-export const DEFAULT_MOOD_COLORS: Record<MoodLevel, string> = {
+/** Default mood colour hex values matching the official Daylio palette. */
+export const DEFAULT_MOOD_COLORS: Readonly<Record<MoodLevel, string>> = {
 	rad: "#f78c1e",
 	good: "#41a766",
 	meh: "#9056a3",
 	bad: "#5579a7",
 	awful: "#6a777c",
-};
+} as const;
 
 // ─── Settings ───────────────────────────────────────────────────────
 
+/** Persisted plugin settings stored in `.obsidian/plugins/daylio-mood-graph/data.json`. */
 export interface DaylioGraphSettings {
+	/** Vault-relative path to the Daylio CSV export file. */
 	csvPath: string;
+	/** Hex colour for each mood level. */
 	moodColors: Record<MoodLevel, string>;
 	/** Pixel width of each bar column — controls zoom level. */
 	barWidth: number;
@@ -68,6 +90,7 @@ export interface DaylioGraphSettings {
 	showEventLabels: boolean;
 }
 
+/** Factory defaults applied when no saved settings exist yet. */
 export const DEFAULT_SETTINGS: DaylioGraphSettings = {
 	csvPath: "",
 	moodColors: { ...DEFAULT_MOOD_COLORS },
@@ -108,21 +131,29 @@ export const BAR_WIDTH_YEAR_ONLY_THRESHOLD = 0.5;
 
 // ─── Layout helpers ─────────────────────────────────────────────────
 
+/** Obsidian view type identifier — must match the CSS attribute selector
+ *  `[data-type="daylio-mood-graph-view"]` in styles.css. */
 export const VIEW_TYPE_DAYLIO = "daylio-mood-graph-view";
 
 /**
  * Gap between bar columns, in pixels.  Shrinks at extreme zoom-out so
  * the gap doesn't dominate over the bars themselves.
+ *
+ * @param barWidth - Current bar width in pixels.
+ * @returns Gap size: 2px at normal zoom, 1px at medium zoom, 0px at extreme zoom-out.
  */
 export function barGapFor(barWidth: number): number {
 	return barWidth >= 2 ? 2 : barWidth >= 1 ? 1 : 0;
 }
 
-/** Lane 0 = top = "rad" (best mood). */
-export const MOOD_TO_LANE: Record<MoodLevel, number> = {
+/**
+ * Maps each mood level to its vertical lane index in the graph.
+ * Lane 0 = top = "rad" (best mood), lane 4 = bottom = "awful" (worst mood).
+ */
+export const MOOD_TO_LANE: Readonly<Record<MoodLevel, number>> = {
 	rad: 0,
 	good: 1,
 	meh: 2,
 	bad: 3,
 	awful: 4,
-};
+} as const;

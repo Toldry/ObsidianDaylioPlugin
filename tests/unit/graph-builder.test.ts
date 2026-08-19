@@ -441,5 +441,3 @@ describe("computeStickyLabelPosition", () => {
 
 
 
-
-

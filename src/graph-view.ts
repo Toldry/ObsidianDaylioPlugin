@@ -78,7 +78,7 @@ export class DaylioGraphView extends ItemView {
 	}
 
 	getIcon(): string {
-		return DAYLIO_ICON_ID
+		return DAYLIO_ICON_ID;
 	}
 
 	async onOpen(): Promise<void> {

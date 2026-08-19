@@ -17,11 +17,11 @@ import { barGapFor } from "./types";
 
 export interface AnchorParams {
 	/** SVG X coordinate of the point that should remain fixed. */
-	svgX: number;
+	readonly svgX: number;
 	/** Viewport X position where that point currently sits. */
-	viewportX: number;
+	readonly viewportX: number;
 	/** Bar stride (width + gap) *before* the zoom change. */
-	oldStride: number;
+	readonly oldStride: number;
 }
 
 export interface ScrollResult {

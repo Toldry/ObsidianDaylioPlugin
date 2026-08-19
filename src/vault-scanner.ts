@@ -1,26 +1,46 @@
 import { App } from "obsidian";
 import type { VaultEvent } from "./types";
 
+/** Matches the YYYY-MM-DD prefix at the start of a filename. */
 export const DATE_PREFIX_REGEX = /^(\d{4}-\d{2}-\d{2})/;
+
+/** Matches a standalone ISO date (no surrounding text). */
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Matches "YYYY-MM-DD -> YYYY-MM-DD" (or ".." / "to" as separators). */
 const DATE_RANGE_REGEX = /^(\d{4}-\d{2}-\d{2})\s*(?:->|\.\.|to)\s*(\d{4}-\d{2}-\d{2})$/;
+
+/** Matches "YYYY-MM-DD -> " (ongoing range with no end date). */
 const ONGOING_RANGE_REGEX = /^(\d{4}-\d{2}-\d{2})\s*(?:->|\.\.|to)\s*$/;
 
+/**
+ * The result of parsing a `daylio_event` frontmatter value via
+ * the pipe-delimited syntax (see {@link parseEventString}).
+ */
 export interface ParsedEventItem {
+	/** Human-readable event label. */
 	label: string;
+	/** ISO start date (may override the filename date). */
 	startDate: string;
+	/** ISO end date (only set for valid ranges). */
 	endDate?: string;
+	/** True when the event spans multiple days. */
 	isRange?: boolean;
 }
 
 /**
  * Parse an event string that might contain pipe range syntax.
- * Examples:
- *   - "Got a cat" -> Point event on defaultStartDate
- *   - "Summer Vacation | 2024-08-12 -> 2024-08-28" -> Range event (Aug 12 - Aug 28)
- *   - "Ongoing Project | 2024-01-01 -> " -> Range event (2024-01-01 -> today)
- *   - "Milestone | 2024-05-14" -> Point event on 2024-05-14 (pipe overrides filename date)
- *   - "Cats | Dogs" -> Point event with label "Cats | Dogs" (since "Dogs" is not a date)
+ *
+ * Supported formats:
+ *   - `"Got a cat"`                              → Point event on defaultStartDate
+ *   - `"Summer Vacation | 2024-08-12 -> 2024-08-28"` → Range event (Aug 12–28)
+ *   - `"Ongoing Project | 2024-01-01 -> "`       → Range event (Jan 1 → today)
+ *   - `"Milestone | 2024-05-14"`                 → Point event on 2024-05-14 (overrides filename)
+ *   - `"Cats | Dogs"`                            → Point event with label "Cats | Dogs" (no date after pipe)
+ *
+ * @param rawStr          - The raw `daylio_event` frontmatter value.
+ * @param defaultStartDate - Fallback start date (from filename prefix).
+ * @param noteEndDate     - Optional end date from `daylio_end` frontmatter.
  */
 export function parseEventString(
 	rawStr: string,
@@ -41,6 +61,7 @@ export function parseEventString(
 	const parts = trimmed.split("|").map((p) => p.trim());
 	const lastPart = parts[parts.length - 1] ?? "";
 
+	// "Label | YYYY-MM-DD -> YYYY-MM-DD"
 	const rangeMatch = lastPart.match(DATE_RANGE_REGEX);
 	if (rangeMatch?.[1] && rangeMatch[2]) {
 		const label = parts.slice(0, -1).join(" | ").trim();
@@ -55,15 +76,12 @@ export function parseEventString(
 		};
 	}
 
+	// "Label | YYYY-MM-DD -> " (ongoing — end date defaults to today)
 	const ongoingMatch = lastPart.match(ONGOING_RANGE_REGEX);
 	if (ongoingMatch?.[1]) {
 		const label = parts.slice(0, -1).join(" | ").trim();
 		const startDate = ongoingMatch[1];
-		const now = new Date();
-		const yyyy = now.getFullYear();
-		const mm = String(now.getMonth() + 1).padStart(2, "0");
-		const dd = String(now.getDate()).padStart(2, "0");
-		const todayStr = `${yyyy}-${mm}-${dd}`;
+		const todayStr = formatISODate(new Date());
 		const endDate = todayStr >= startDate ? todayStr : startDate;
 		return {
 			label,
@@ -73,8 +91,8 @@ export function parseEventString(
 		};
 	}
 
+	// "Label | YYYY-MM-DD" (single date override)
 	if (ISO_DATE_REGEX.test(lastPart)) {
-		// Single date specified in pipe: treated as a point event on that date (overrides filename date)
 		const label = parts.slice(0, -1).join(" | ").trim();
 		const startDate = lastPart;
 		const isRange = Boolean(noteEndDate && noteEndDate >= startDate);
@@ -86,7 +104,7 @@ export function parseEventString(
 		};
 	}
 
-	// Last part is not a date/range, treat full string (including pipes) as label
+	// Last part is not a date/range — treat full string (including pipes) as label
 	const isRange = Boolean(noteEndDate && noteEndDate >= defaultStartDate);
 	return {
 		label: trimmed,
@@ -96,9 +114,36 @@ export function parseEventString(
 	};
 }
 
-/** Auto-detect Obsidian Daily Notes core plugin folder if enabled. */
+/**
+ * Format a Date object as an ISO "YYYY-MM-DD" string.
+ * Avoids repeating the pad-and-join pattern in multiple places.
+ */
+function formatISODate(date: Date): string {
+	const yyyy = date.getFullYear();
+	const mm = String(date.getMonth() + 1).padStart(2, "0");
+	const dd = String(date.getDate()).padStart(2, "0");
+	return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
+ * Try to extract an ISO date string from a frontmatter value.
+ * Returns the trimmed date if it's a valid `YYYY-MM-DD` string, or `undefined`.
+ */
+function parseFrontmatterDate(value: unknown): string | undefined {
+	if (typeof value === "string" && ISO_DATE_REGEX.test(value.trim())) {
+		return value.trim();
+	}
+	return undefined;
+}
+
+/**
+ * Auto-detect Obsidian Daily Notes core plugin folder if enabled.
+ * Falls back to `undefined` when the internal API is unavailable
+ * (e.g. in tests) or when the plugin is disabled.
+ */
 function getDailyNotesFolder(app: App): string | undefined {
 	try {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const internalPlugins = (app as any).internalPlugins;
 		const dailyNotes = internalPlugins?.getPluginById?.("daily-notes");
 		if (dailyNotes?.enabled) {
@@ -114,11 +159,31 @@ function getDailyNotesFolder(app: App): string | undefined {
 }
 
 /**
+ * Collect string items from a frontmatter value that may be a string,
+ * an array of strings, or something else entirely (in which case
+ * nothing is collected).
+ */
+function collectStringItems(val: unknown, out: string[]): void {
+	if (typeof val === "string" && val.trim()) {
+		out.push(val.trim());
+	} else if (Array.isArray(val)) {
+		for (const item of val) {
+			if (typeof item === "string" && item.trim()) {
+				out.push(item.trim());
+			}
+		}
+	}
+}
+
+/**
  * Scan the vault for all dated notes and extract Point and Range Events.
  *
- * @param scanDir Optional vault-relative directory to restrict scanning to.
- *                If empty or omitted, attempts to auto-detect the Daily Notes folder,
- *                otherwise scans the whole vault.
+ * @param app     - The Obsidian App instance.
+ * @param scanDir - Optional vault-relative directory to restrict scanning to.
+ *                  If empty or omitted, attempts to auto-detect the Daily Notes folder,
+ *                  otherwise scans the whole vault.
+ * @returns Array of VaultEvent objects (one per labelled event, plus unlabelled
+ *          entries for dated notes without a `daylio_event` field).
  */
 export function scanVaultEvents(app: App, scanDir?: string): VaultEvent[] {
 	const events: VaultEvent[] = [];
@@ -138,34 +203,16 @@ export function scanVaultEvents(app: App, scanDir?: string): VaultEvent[] {
 		const cache = app.metadataCache.getFileCache(file);
 		const frontmatter = cache?.frontmatter;
 
-		const startProp = typeof frontmatter?.["daylio_start"] === "string" && ISO_DATE_REGEX.test(frontmatter["daylio_start"].trim())
-			? frontmatter["daylio_start"].trim()
-			: undefined;
-
+		const startProp = parseFrontmatterDate(frontmatter?.["daylio_start"]);
 		const startDate = startProp ?? dateMatch?.[1];
 		if (!startDate) continue;
 
-		const noteEndDate = typeof frontmatter?.["daylio_end"] === "string" && ISO_DATE_REGEX.test(frontmatter["daylio_end"].trim())
-			? frontmatter["daylio_end"].trim()
-			: undefined;
+		const noteEndDate = parseFrontmatterDate(frontmatter?.["daylio_end"]);
 
 		// Extract raw items from daylio_event and daylio_events (string or array)
 		const rawItems: string[] = [];
-
-		const collectItems = (val: unknown): void => {
-			if (typeof val === "string" && val.trim()) {
-				rawItems.push(val.trim());
-			} else if (Array.isArray(val)) {
-				for (const item of val) {
-					if (typeof item === "string" && item.trim()) {
-						rawItems.push(item.trim());
-					}
-				}
-			}
-		};
-
-		collectItems(frontmatter?.["daylio_event"]);
-		collectItems(frontmatter?.["daylio_events"]);
+		collectStringItems(frontmatter?.["daylio_event"], rawItems);
+		collectStringItems(frontmatter?.["daylio_events"], rawItems);
 
 		if (rawItems.length === 0) {
 			// Unlabelled entry marker for column highlight
