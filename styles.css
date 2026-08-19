@@ -91,17 +91,17 @@
 
 /* ── Legend ─────────────────────────────────────────────────── */
 
-/* Floats in the bottom-right corner of the graph root, overlaid
+/* Floats in the bottom-left corner of the graph root, overlaid
    on the scroll area.  Background keeps it legible over the bars. */
 .daylio-graph-legend {
 	position: absolute;
-	bottom: 20px;
-	right: 20px;
+	bottom: 36px;
+	left: 20px;
 	display: flex;
 	gap: 8px;
 	flex-wrap: wrap;
 	align-items: center;
-	justify-content: flex-end;
+	justify-content: flex-start;
 	background: var(--background-primary);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 6px;
@@ -177,6 +177,22 @@
 }
 
 /* ── SVG elements ──────────────────────────────────────────── */
+
+.daylio-bg-segment {
+	pointer-events: none;
+}
+
+.daylio-bg-segment-header {
+	fill: var(--background-secondary-alt);
+}
+
+.daylio-bg-segment-graph {
+	fill: var(--background-primary);
+}
+
+.daylio-bg-segment-labels {
+	fill: var(--background-secondary);
+}
 
 .daylio-month-line {
 	stroke: var(--background-modifier-border);
@@ -390,7 +406,7 @@
 	background: var(--background-secondary, #202020);
 	border: 1px solid var(--interactive-accent);
 	border-radius: 4px;
-	padding: 0 6px;
+	padding: 0 3px;
 	font-size: 10px;
 	line-height: 16px;
 	color: var(--text-normal);

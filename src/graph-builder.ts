@@ -24,7 +24,7 @@ const MOOD_BAR_HEIGHT = Math.round(LANE_HEIGHT * MOOD_BAR_FILL_RATIO);
 /** Vertical offset (px) to centre the bar within its lane. */
 const MOOD_BAR_OFFSET = Math.round((LANE_HEIGHT - MOOD_BAR_HEIGHT) / 2);
 /** Height (px) of the date header strip above the graph. */
-const DATE_HEADER_HEIGHT = 14;
+const DATE_HEADER_HEIGHT = 18;
 /** Minimum horizontal distance (px) between adjacent month labels. */
 const MIN_MONTH_LABEL_PX = 55;
 /** Font size (px) for event label text — must match .daylio-event-label in CSS. */
@@ -34,7 +34,7 @@ const BAR_CORNER_RADIUS_MAX = 2;
 /** How many pixels left of a month/year boundary the separator line and label are placed. */
 const SEPARATOR_X_OFFSET = 2;
 /** Y coordinate (px) of month/year labels inside the date header strip. */
-const MONTH_LABEL_Y = 12;
+const MONTH_LABEL_Y = 13;
 /** Extra vertical pixels added below the last row of content to pad the SVG bottom. */
 const SVG_BOTTOM_PAD = 4;
 /** How far (px) above graphTop the date-of-month tick labels are drawn. */
@@ -365,12 +365,12 @@ export function packEventsIntoTracks(
 
 		const isRange = endIdx > startIdx;
 		const textWidth = measureTextFn
-			? Math.ceil(measureTextFn(ev.label)) + 12
-			: ev.label.length * 6 + 12;
+			? Math.ceil(measureTextFn(ev.label)) + 6
+			: ev.label.length * 6 + 6;
 		const x1 = LEFT_PAD + startIdx * stride;
 		const x2 = LEFT_PAD + endIdx * stride + barWidth;
 		const barWidthPx = Math.max(barWidth, x2 - x1);
-		const cardWidth = textWidth + 14;
+		const cardWidth = textWidth + 8;
 		const isCallout = barWidthPx < cardWidth;
 
 		let cardX = x1;
@@ -564,6 +564,36 @@ export function buildGraphSvg(
 		viewBox: `0 0 ${svgWidth} ${totalHeight}`,
 		class: "daylio-graph-svg",
 	}) as SVGSVGElement;
+
+	// ── Segment Backgrounds ──────────────────────────────────────
+	// 1. Month labels strip
+	svg.appendChild(svgEl("rect", {
+		x: "0",
+		y: "0",
+		width: String(svgWidth),
+		height: String(graphTop),
+		class: "daylio-bg-segment daylio-bg-segment-header",
+	}));
+
+	// 2. Main graph area
+	svg.appendChild(svgEl("rect", {
+		x: "0",
+		y: String(graphTop),
+		width: String(svgWidth),
+		height: String(GRAPH_HEIGHT),
+		class: "daylio-bg-segment daylio-bg-segment-graph",
+	}));
+
+	// 3. Event labels & swimlanes area (if present)
+	if (ganttHeight > 0) {
+		svg.appendChild(svgEl("rect", {
+			x: "0",
+			y: String(graphBottom),
+			width: String(svgWidth),
+			height: String(totalHeight - graphBottom),
+			class: "daylio-bg-segment daylio-bg-segment-labels",
+		}));
+	}
 
 	// ── Lane dividers (single <path>) ────────────────────────────
 	{
