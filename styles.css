@@ -453,25 +453,27 @@
 
 .daylio-tooltip-legend {
 	display: flex;
-	flex-wrap: wrap;
-	gap: 4px 8px;
-	font-size: 10px;
+	flex-wrap: nowrap;
+	gap: 6px;
+	font-size: 9px;
 	color: var(--text-normal);
-	margin-bottom: 4px;
+	margin-bottom: 2px;
+	white-space: nowrap;
 }
 
 .daylio-tooltip-legend-item {
 	display: inline-flex;
 	align-items: center;
-	gap: 3px;
+	gap: 2.5px;
 	text-transform: capitalize;
 }
 
 .daylio-tooltip-swatch {
 	display: inline-block;
-	width: 7px;
-	height: 7px;
-	border-radius: 2px;
+	width: 6px;
+	height: 6px;
+	border-radius: 1.5px;
+	flex-shrink: 0;
 }
 
 .daylio-tooltip-empty {

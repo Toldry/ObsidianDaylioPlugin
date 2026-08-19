@@ -65,11 +65,11 @@ export const RIGHT_PAD = 20;
  */
 export const TRACK_COLORS: readonly string[] = [
 	"#7c6fe0",  // Obsidian Purple / Violet (primary)
-	"#a855f7",  // Bright Amethyst (vibrant)
-	"#c084fc",  // Orchid / Lilac (light, luminous)
-	"#6366f1",  // Indigo-Purple (deep cool violet)
-	"#9333ea",  // Royal Purple (deep, rich)
-	"#d8b4fe",  // Soft Lavender (pastel)
+	// "#a855f7",  // Bright Amethyst (vibrant)
+	// "#c084fc",  // Orchid / Lilac (light, luminous)
+	// "#6366f1",  // Indigo-Purple (deep cool violet)
+	// "#9333ea",  // Royal Purple (deep, rich)
+	// "#d8b4fe",  // Soft Lavender (pastel)
 ];
 
 export interface StickyLabelParams {
@@ -595,7 +595,7 @@ export function buildGraphSvg(
 	{
 		const yearOnlyLabels = BAR_WIDTH <= BAR_WIDTH_YEAR_ONLY_THRESHOLD;
 		let monthPath = ""; // non-year-start separators
-		let yearPath  = ""; // year-start separators
+		let yearPath = ""; // year-start separators
 		let currentMonth = "";
 		let lastLabelX = -Infinity;
 
@@ -713,10 +713,10 @@ export function buildGraphSvg(
 				? true
 				: BAR_WIDTH >= DATE_TICK_THRESHOLD_COARSE
 					? dayOfMonth % DATE_TICK_INTERVAL_COARSE === 1 ||
-					  dayOfMonth === 1
+					dayOfMonth === 1
 					: BAR_WIDTH >= DATE_TICK_THRESHOLD_MEDIUM
 						? dayOfMonth % DATE_TICK_INTERVAL_FINE === 1 ||
-						  dayOfMonth === 1
+						dayOfMonth === 1
 						: false;
 
 		if (showTick) {

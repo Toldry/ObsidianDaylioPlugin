@@ -26,4 +26,4 @@ build_files.forEach(f => fs.copyFileSync(build_path + f, obsidian_vault_path + f
 
 static_files.forEach(f => fs.copyFileSync(f, obsidian_vault_path + f))
 
-console.log('Finished installing plugin in local Obsidian vault')
+console.log('Finished installing plugin in test Obsidian vault');

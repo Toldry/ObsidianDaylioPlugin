@@ -548,9 +548,6 @@ export class DaylioGraphView extends ItemView {
 			emptyEl.textContent = "No mood entries in this range";
 		}
 
-		// Hint
-		const hintEl = this.tooltipEl.createDiv({ cls: "daylio-tooltip-hint" });
-		hintEl.textContent = "Click to open note";
 
 		this.tooltipEl.style.display = "block";
 		this.positionTooltip(event);
