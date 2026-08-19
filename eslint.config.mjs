@@ -32,8 +32,8 @@ export default tseslint.config(
 			"prefer-const": "error",
 
 			// Disallow console.log in source (use the log() helper instead).
-			// console.debug and console.warn are fine.
-			"no-console": ["warn", { allow: ["debug", "warn", "error"] }],
+			// console.debug, console.info, console.warn, and console.error are fine.
+			"no-console": ["warn", { allow: ["debug", "info", "warn", "error"] }],
 
 			// No duplicate imports from the same module.
 			"no-duplicate-imports": "error",
