@@ -559,13 +559,13 @@ function buildGraphSvg(barWidth, days, vaultEvents, ctx) {
   const graphBottom = graphTop + GRAPH_HEIGHT;
   const RANGE_TRACK_HEIGHT = 30;
   const RANGE_SWIMLANE_GAP = 8;
-  const TOP_BAR_HEIGHT = 5;
+  const TOP_BAR_HEIGHT = 3;
   const TOP_BAR_Y_OFFSET = 2;
-  const CALLOUT_GAP = 3;
+  const CALLOUT_GAP = 0;
   const CALLOUT_CARD_HEIGHT = 18;
   const CALLOUT_CARD_Y_OFFSET = TOP_BAR_Y_OFFSET + TOP_BAR_HEIGHT + CALLOUT_GAP;
-  const WIDE_PILL_HEIGHT = 20;
-  const WIDE_PILL_Y_OFFSET = 4;
+  const WIDE_PILL_HEIGHT = 18;
+  const WIDE_PILL_Y_OFFSET = CALLOUT_CARD_Y_OFFSET;
   const measureCanvas = document.createElement("canvas");
   const measureCtx = measureCanvas.getContext("2d");
   if (measureCtx) {
@@ -733,7 +733,8 @@ function buildGraphSvg(barWidth, days, vaultEvents, ctx) {
   }
   if (ctx.showEventLabels && eventTracks.spans.length > 0) {
     const swimlaneGroup = svgEl("g", { class: "daylio-range-swimlanes" });
-    for (const span of eventTracks.spans) {
+    const sortedSpans = [...eventTracks.spans].sort((a, b) => b.trackIdx - a.trackIdx);
+    for (const span of sortedSpans) {
       const x1 = LEFT_PAD + span.startIdx * stride;
       const x2 = LEFT_PAD + span.endIdx * stride + BAR_WIDTH;
       const barWidthPx = x2 - x1;
@@ -762,6 +763,12 @@ function buildGraphSvg(barWidth, days, vaultEvents, ctx) {
           y2: String(yTop),
           class: "daylio-event-connector"
         }));
+        pillGroup.appendChild(svgEl("circle", {
+          cx: String(cx),
+          cy: String(yTop - TOP_BAR_HEIGHT),
+          r: String(TOP_BAR_HEIGHT),
+          class: "daylio-point-circle"
+        }));
       } else {
         const cxStart = LEFT_PAD + span.startIdx * stride + BAR_WIDTH / 2;
         const cxEnd = LEFT_PAD + span.endIdx * stride + BAR_WIDTH / 2;
@@ -780,28 +787,34 @@ function buildGraphSvg(barWidth, days, vaultEvents, ctx) {
           class: "daylio-event-connector"
         }));
       }
+      if (span.isRange) {
+        const topBarY = yTrack + TOP_BAR_Y_OFFSET;
+        const topBar = svgEl("rect", {
+          class: "daylio-range-top-bar",
+          x: String(x1),
+          y: String(topBarY),
+          width: String(pillWidth),
+          height: String(TOP_BAR_HEIGHT),
+          rx: "2",
+          ry: "2"
+        });
+        pillGroup.appendChild(topBar);
+      }
       if (span.isCallout) {
         if (span.isRange) {
-          const topBarY = yTrack + TOP_BAR_Y_OFFSET;
-          const topBar = svgEl("rect", {
-            class: "daylio-range-top-bar",
-            x: String(x1),
-            y: String(topBarY),
-            width: String(pillWidth),
-            height: String(TOP_BAR_HEIGHT)
-          });
-          pillGroup.appendChild(topBar);
           const cx = (x1 + x2) / 2;
-          const stemY1 = topBarY + TOP_BAR_HEIGHT;
+          const stemY1 = yTrack + TOP_BAR_Y_OFFSET + TOP_BAR_HEIGHT;
           const stemY2 = yTrack + CALLOUT_CARD_Y_OFFSET;
-          const stem = svgEl("line", {
-            class: "daylio-range-callout-stem",
-            x1: String(cx),
-            y1: String(stemY1),
-            x2: String(cx),
-            y2: String(stemY2)
-          });
-          pillGroup.appendChild(stem);
+          if (stemY2 > stemY1) {
+            const stem = svgEl("line", {
+              class: "daylio-range-callout-stem",
+              x1: String(cx),
+              y1: String(stemY1),
+              x2: String(cx),
+              y2: String(stemY2)
+            });
+            pillGroup.appendChild(stem);
+          }
         }
         const foAttrs = {
           x: String(span.cardX),
