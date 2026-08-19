@@ -1,0 +1,1 @@
+Bicycled thirty miles out past Kingston along the canal paths. The humid American summer heat is unbearable indoors, but the breeze on the road clears the cobwebs. Stopped at a roadside stand for fresh cider.

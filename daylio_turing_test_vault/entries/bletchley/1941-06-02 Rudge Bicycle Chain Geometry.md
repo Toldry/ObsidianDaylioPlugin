@@ -1,0 +1,1 @@
+Discovered that the chain on my bicycle only derails when a faulty link meets a bent cog tooth after precisely fourteen pedal revolutions. By back-pedaling once every thirteen strokes, I can commute from my cottage without dismounting. Who needs a bicycle repair shop when one has modular arithmetic?

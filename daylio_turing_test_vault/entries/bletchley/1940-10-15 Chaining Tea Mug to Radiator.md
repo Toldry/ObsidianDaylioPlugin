@@ -1,0 +1,1 @@
+Grew weary of finding my chipped porcelain tea mug missing from the desk every morning. Padlocked it securely around the cast-iron hot water pipe by the Hut 8 window. It looks absurd, but property rights are now definitively established.

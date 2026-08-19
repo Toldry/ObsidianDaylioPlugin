@@ -1,0 +1,10 @@
+{
+	"id": "daylio-mood-graph",
+	"name": "Daylio Mood Graph",
+	"version": "1.1.6",
+	"minAppVersion": "0.15.0",
+	"description": "Visualizes Daylio mood data as a color-coded graph with clickable vault event labels.",
+	"author": "Toldry",
+	"authorUrl": "https://github.com/Toldry",
+	"isDesktopOnly": false
+}

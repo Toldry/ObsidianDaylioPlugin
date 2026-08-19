@@ -1,0 +1,1 @@
+Kjell Nilsen came over from Norway to stay with me at Wilmslow for a fortnight. Discovered that the local police and Special Branch have placed my house under continuous surveillance, terrified of foreign contacts. We ignored them and went for long bike rides in the Peak District.

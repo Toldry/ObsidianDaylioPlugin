@@ -1,0 +1,13 @@
+{
+  "csvPath": "attachments/daylio_export.csv",
+  "moodColors": {
+    "rad": "#f78c1e",
+    "good": "#41a766",
+    "meh": "#9056a3",
+    "bad": "#5579a7",
+    "awful": "#ff0000"
+  },
+  "barWidth": 0.25,
+  "eventScanDir": "entries",
+  "showEventLabels": true
+}

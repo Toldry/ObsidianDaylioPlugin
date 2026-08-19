@@ -1,0 +1,1 @@
+Spent Christmas Eve with mother at Guildford, helping her string paper lanterns in the parlor. We chatted cheerfully about childhood chemistry sets and gardening rather than recent troubles. Returned home to Wilmslow on Boxing Day.

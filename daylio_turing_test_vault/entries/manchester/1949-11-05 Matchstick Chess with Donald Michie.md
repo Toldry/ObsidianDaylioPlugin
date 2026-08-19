@@ -1,0 +1,1 @@
+Donald came up to Manchester for the weekend and we spent all evening testing our paper chess program 'Turochamp'. We burned matchsticks to time each move when the clock broke. He eventually outflanked my king's bishop.

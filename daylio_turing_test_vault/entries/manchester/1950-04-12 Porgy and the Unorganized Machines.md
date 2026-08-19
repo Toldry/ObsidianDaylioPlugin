@@ -1,0 +1,1 @@
+Sat my teddy bear Porgy on the mantlepiece and explained to him how genetic search could train a neural net. He listened with immense patience without raising a single objection. Robin laughed when he saw us.
