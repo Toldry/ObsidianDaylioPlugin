@@ -790,8 +790,6 @@ export function buildGraphSvg(
 						y: String(topBarY),
 						width: String(pillWidth),
 						height: String(TOP_BAR_HEIGHT),
-						rx: "2.5",
-						ry: "2.5",
 					});
 					pillGroup.appendChild(topBar);
 

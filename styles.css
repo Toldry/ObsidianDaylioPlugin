@@ -321,8 +321,6 @@
 	stroke: var(--interactive-accent);
 	fill-opacity: 0.9;
 	stroke-width: 1;
-	rx: 2.5px;
-	ry: 2.5px;
 	transition: fill-opacity 0.15s, stroke-width 0.15s, filter 0.15s;
 }
 
