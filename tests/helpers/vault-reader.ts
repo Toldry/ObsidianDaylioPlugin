@@ -11,7 +11,7 @@
 import fs from "fs";
 import path from "path";
 
-import { parseEventString } from "../../src/main";
+import { parseEventString, parseFrontmatterDate, collectStringItems } from "../../src/main";
 
 export interface VaultEventOnDisk {
 	date: string;
@@ -106,20 +106,8 @@ export function readVaultEventsFromDisk(
 		const frontmatter = parseFrontmatter(content);
 
 		const rawItems: string[] = [];
-		const collectItems = (val: unknown): void => {
-			if (typeof val === "string" && val.trim()) {
-				rawItems.push(val.trim());
-			} else if (Array.isArray(val)) {
-				for (const item of val) {
-					if (typeof item === "string" && item.trim()) {
-						rawItems.push(item.trim());
-					}
-				}
-			}
-		};
-
-		collectItems(frontmatter?.["daylio_event"]);
-		collectItems(frontmatter?.["daylio_events"]);
+		collectStringItems(frontmatter?.["daylio_event"], rawItems);
+		collectStringItems(frontmatter?.["daylio_events"], rawItems);
 
 		if (rawItems.length === 0) {
 			events.push({
@@ -127,7 +115,7 @@ export function readVaultEventsFromDisk(
 				filePath,
 			});
 		} else {
-			const noteEndDate = typeof frontmatter?.["daylio_end"] === "string" ? frontmatter["daylio_end"] : undefined;
+			const noteEndDate = parseFrontmatterDate(frontmatter?.["daylio_end"]);
 			for (const item of rawItems) {
 				const parsed = parseEventString(item, dateMatch[1], noteEndDate);
 				events.push({

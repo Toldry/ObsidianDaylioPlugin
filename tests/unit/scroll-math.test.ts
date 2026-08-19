@@ -267,7 +267,7 @@ describe("computeAnchoredScroll", () => {
 		const viewportX = 400; // cursor stays at viewport centre
 
 		// Start zoomed in
-		let bw = 8;
+		const bw = 8;
 		let stride = strideFor(bw); // 10
 		let scrollLeft = 1500;
 		let marginLeft = 0;
@@ -306,7 +306,7 @@ describe("computeAnchoredScroll", () => {
 		const viewportX = 400;
 
 		// Start zoomed out (in margin state)
-		let bw = 0.25;
+		const bw = 0.25;
 		let stride = strideFor(bw);
 		let marginLeft = 300;
 		let scrollLeft = 0;

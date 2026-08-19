@@ -34,6 +34,8 @@ export {
 export {
 	scanVaultEvents,
 	parseEventString,
+	parseFrontmatterDate,
+	collectStringItems,
 	DATE_PREFIX_REGEX,
 } from "./vault-scanner";
 export {

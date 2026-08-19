@@ -189,20 +189,7 @@ export class DaylioGraphView extends ItemView {
 			);
 			if (newWidth === this.plugin.settings.barWidth) return;
 			slider.value = String(newWidth);
-			if (this.scrollContainer) {
-				const viewportX = this.scrollContainer.clientWidth / 2;
-				const scrollLeft =
-					this.intendedScrollLeft ??
-					this.scrollContainer.scrollLeft;
-				const svgX =
-					scrollLeft + viewportX - this.intendedMarginLeft;
-				const oldBW = this.plugin.settings.barWidth;
-				this.quickRedraw(newWidth, {
-					svgX,
-					viewportX,
-					oldStride: oldBW + barGapFor(oldBW),
-				});
-			}
+			this.quickRedraw(newWidth, this.getCenterAnchor());
 			void this.plugin.saveSettings();
 		};
 
@@ -228,18 +215,7 @@ export class DaylioGraphView extends ItemView {
 				newWidth === this.plugin.settings.barWidth ||
 				!this.scrollContainer
 			) return;
-			const viewportX = this.scrollContainer.clientWidth / 2;
-			const scrollLeft =
-				this.intendedScrollLeft ??
-				this.scrollContainer.scrollLeft;
-			const svgX =
-				scrollLeft + viewportX - this.intendedMarginLeft;
-			const oldBW = this.plugin.settings.barWidth;
-			this.quickRedraw(newWidth, {
-				svgX,
-				viewportX,
-				oldStride: oldBW + barGapFor(oldBW),
-			});
+			this.quickRedraw(newWidth, this.getCenterAnchor());
 		});
 
 		slider.addEventListener("change", () => {
@@ -266,22 +242,7 @@ export class DaylioGraphView extends ItemView {
 			// Use anchor-based scroll preservation: only vertical content
 			// changes (label cards below the graph), so we keep the
 			// horizontal position exactly where it was.
-			if (this.scrollContainer) {
-				const viewportX = this.scrollContainer.clientWidth / 2;
-				const scrollLeft =
-					this.intendedScrollLeft ??
-					this.scrollContainer.scrollLeft;
-				const svgX =
-					scrollLeft + viewportX - this.intendedMarginLeft;
-				const bw = this.plugin.settings.barWidth;
-				this.quickRedraw(bw, {
-					svgX,
-					viewportX,
-					oldStride: bw + barGapFor(bw),
-				});
-			} else {
-				this.quickRedraw(this.plugin.settings.barWidth);
-			}
+			this.quickRedraw(this.plugin.settings.barWidth, this.getCenterAnchor());
 			void this.plugin.saveSettings();
 		});
 
@@ -623,6 +584,23 @@ export class DaylioGraphView extends ItemView {
 		if (this.tooltipEl) {
 			this.tooltipEl.style.display = "none";
 		}
+	}
+
+	/**
+	 * Compute anchor parameters centered at the visible viewport midpoint.
+	 * Returns undefined if no scroll container is active.
+	 */
+	private getCenterAnchor(): { svgX: number; viewportX: number; oldStride: number } | undefined {
+		if (!this.scrollContainer) return undefined;
+		const viewportX = this.scrollContainer.clientWidth / 2;
+		const scrollLeft = this.intendedScrollLeft ?? this.scrollContainer.scrollLeft;
+		const svgX = scrollLeft + viewportX - this.intendedMarginLeft;
+		const oldBW = this.plugin.settings.barWidth;
+		return {
+			svgX,
+			viewportX,
+			oldStride: oldBW + barGapFor(oldBW),
+		};
 	}
 
 	/**

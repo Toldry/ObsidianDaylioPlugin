@@ -129,7 +129,7 @@ function formatISODate(date: Date): string {
  * Try to extract an ISO date string from a frontmatter value.
  * Returns the trimmed date if it's a valid `YYYY-MM-DD` string, or `undefined`.
  */
-function parseFrontmatterDate(value: unknown): string | undefined {
+export function parseFrontmatterDate(value: unknown): string | undefined {
 	if (typeof value === "string" && ISO_DATE_REGEX.test(value.trim())) {
 		return value.trim();
 	}
@@ -163,7 +163,7 @@ function getDailyNotesFolder(app: App): string | undefined {
  * an array of strings, or something else entirely (in which case
  * nothing is collected).
  */
-function collectStringItems(val: unknown, out: string[]): void {
+export function collectStringItems(val: unknown, out: string[]): void {
 	if (typeof val === "string" && val.trim()) {
 		out.push(val.trim());
 	} else if (Array.isArray(val)) {
