@@ -1,6 +1,10 @@
-# CLAUDE.md — Daylio Mood Graph Plugin
+# AGENTS.md — Daylio Mood Graph Plugin
 
-This file tells Claude how to work on this codebase.
+This file provides context and instructions for AI coding agents working on this codebase.
+
+## Workflow Rules for Agents
+
+- **Always run `npm run update:test-vault` after making changes** to build and copy the updated plugin files into the test vault.
 
 ## What this project is
 
@@ -21,7 +25,7 @@ npm run dev
 npm run build
 
 # Build and copy directly into the test vault in one step
-npm run build:vault
+npm run update:test-vault
 
 # Run the test suite once
 npm test
@@ -157,10 +161,10 @@ manifest `id`. See `styles.css`.
 ## Installing the plugin into the test vault
 
 After building, copy the distributable files into the test vault's plugin
-folder. The `build:vault` script does this automatically:
+folder. The `update:test-vault` script does this automatically:
 
 ```bash
-npm run build:vault
+npm run update:test-vault
 ```
 
 Or manually:

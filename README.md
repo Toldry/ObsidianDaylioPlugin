@@ -192,9 +192,11 @@ npm run build        # production bundle (type-checks first)
 ```
 
 After building, copy `build/main.js`, `build/main.js.map`, `manifest.json`,
-and `styles.css` into your vault's plugin folder and reload Obsidian
-(Ctrl+R / Cmd+R). The shorthand `npm run build:vault` builds and copies
-in one step.
+and `styles.css` into your vault's plugin folder and reload Obsidian.
+The shorthand `npm run update:test-vault` builds and copies in one step.
+
+> [!TIP]
+> **Developer Workflow Tip:** It is recommended to keybind Obsidian's built-in command **"Reload app without saving"** to a hotkey such as <kbd>Ctrl</kbd>+<kbd>R</kbd> (or <kbd>Cmd</kbd>+<kbd>R</kbd>) under **Settings → Hotkeys**. This enables a rapid development loop: run `npm run update:test-vault`, switch to Obsidian, and press <kbd>Ctrl</kbd>+<kbd>R</kbd> to see your changes instantly.
 
 ### Running the tests
 
