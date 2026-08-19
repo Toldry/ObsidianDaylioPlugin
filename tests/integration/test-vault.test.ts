@@ -241,8 +241,8 @@ describe("Vault events integration (test vault notes)", () => {
 		);
 	});
 
-	it("detects the 'Holiday in Portugal' event on 2023-07-22", () => {
-		expect(eventsByDate.get("2023-07-22")?.label).toBe(
+	it("detects the 'Holiday in Portugal' event on 2023-07-30 (date from pipe)", () => {
+		expect(eventsByDate.get("2023-07-30")?.label).toBe(
 			"Holiday in Portugal"
 		);
 	});

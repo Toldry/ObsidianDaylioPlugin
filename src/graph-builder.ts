@@ -58,6 +58,66 @@ export const LEFT_PAD = 20;
 /** Right padding (px) added after the last bar column. */
 export const RIGHT_PAD = 20;
 
+/**
+ * Curated 6-color palette of distinct purple tones for swimlane track cycling.
+ * Each track index maps to a distinct shade of purple so vertically stacked
+ * events are distinguishable while maintaining a unified purple theme.
+ */
+export const TRACK_COLORS: readonly string[] = [
+	"#7c6fe0",  // Obsidian Purple / Violet (primary)
+	"#a855f7",  // Bright Amethyst (vibrant)
+	"#c084fc",  // Orchid / Lilac (light, luminous)
+	"#6366f1",  // Indigo-Purple (deep cool violet)
+	"#9333ea",  // Royal Purple (deep, rich)
+	"#d8b4fe",  // Soft Lavender (pastel)
+];
+
+export interface StickyLabelParams {
+	x1: number;
+	x2: number;
+	cardX: number;
+	cardW: number;
+	pillW: number;
+	isCallout: boolean;
+	visibleLeft: number;
+	padding?: number;
+}
+
+export interface StickyLabelResult {
+	x: number;
+	width: number;
+	isSticky: boolean;
+}
+
+/**
+ * Computes sticky label position and width for range events when their start
+ * date is scrolled out of frame to the left.
+ */
+export function computeStickyLabelPosition(
+	params: StickyLabelParams,
+): StickyLabelResult {
+	const { x1, x2, cardX, cardW, pillW, isCallout, visibleLeft, padding = 8 } = params;
+
+	if (visibleLeft > x1 && visibleLeft < x2 - padding) {
+		const minWidth = isCallout ? cardW : Math.min(cardW, 40);
+		const maxStickyX = x2 - minWidth;
+		const stickyX = Math.max(x1, Math.min(visibleLeft + padding, maxStickyX));
+		const width = isCallout ? cardW : Math.max(20, x2 - stickyX);
+
+		return {
+			x: Math.round(stickyX),
+			width: Math.round(width),
+			isSticky: true,
+		};
+	}
+
+	return {
+		x: Math.round(cardX),
+		width: Math.round(isCallout ? cardW : pillW),
+		isSticky: false,
+	};
+}
+
 // ─── SVG helper ─────────────────────────────────────────────────────
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -148,6 +208,72 @@ export function computeEntrySpans(
 	return spans;
 }
 
+export interface MoodProportion {
+	mood: MoodLevel;
+	count: number;
+	percentage: number;
+}
+
+export interface RangeMoodSummary {
+	proportions: MoodProportion[];
+	totalEntries: number;
+	totalDays: number;
+}
+
+export interface RangeTooltipData {
+	label: string;
+	isRange: boolean;
+	date: string;
+	endDate?: string;
+	moodSummary: RangeMoodSummary;
+	trackColor: string;
+}
+
+/**
+ * Computes mood counts and percentages for all Daylio entries between
+ * startIdx and endIdx (inclusive).
+ */
+export function computeRangeMoodProportions(
+	days: DayData[],
+	startIdx: number,
+	endIdx: number,
+): RangeMoodSummary {
+	const counts: Record<MoodLevel, number> = {
+		rad: 0,
+		good: 0,
+		meh: 0,
+		bad: 0,
+		awful: 0,
+	};
+	let totalEntries = 0;
+	const safeStart = Math.max(0, Math.min(startIdx, days.length - 1));
+	const safeEnd = Math.max(safeStart, Math.min(endIdx, days.length - 1));
+
+	for (let i = safeStart; i <= safeEnd; i++) {
+		const day = days[i];
+		if (!day) continue;
+		for (const entry of day.entries) {
+			if (entry && entry.mood in counts) {
+				counts[entry.mood]++;
+				totalEntries++;
+			}
+		}
+	}
+
+	const totalDays = safeEnd - safeStart + 1;
+	const proportions: MoodProportion[] = MOOD_LEVELS.map((mood) => ({
+		mood,
+		count: counts[mood],
+		percentage: totalEntries > 0 ? (counts[mood] / totalEntries) * 100 : 0,
+	}));
+
+	return {
+		proportions,
+		totalEntries,
+		totalDays,
+	};
+}
+
 export interface GraphBuildContext {
 	moodColors: Record<MoodLevel, string>;
 	openFile: (filePath: string) => void;
@@ -159,6 +285,9 @@ export interface GraphBuildContext {
 	 *  be nonzero), which keeps cursor-anchored zoom correct even when the
 	 *  graph would otherwise fit entirely within the viewport. */
 	minWidth?: number;
+	onEventHover?: (event: MouseEvent, data: RangeTooltipData) => void;
+	onEventMove?: (event: MouseEvent) => void;
+	onEventLeave?: () => void;
 }
 
 export interface EventTrackSpan {
@@ -177,8 +306,10 @@ export type RangeTrackSpan = EventTrackSpan;
 
 /**
  * Greedily pack all labelled events into non-overlapping horizontal tracks (swimlanes).
- * Uses Floating Callout Cards when text exceeds the date span width so text is always
- * cleanly enclosed inside a badge container.
+ * 1. Range events (isRange = true) are ALWAYS packed into tracks strictly above point events.
+ * 2. Events with sooner start dates are prioritized for higher tracks (lower trackIdx).
+ * 3. Uses Floating Callout Cards when text exceeds the date span width so text is always
+ *    cleanly enclosed inside a badge container.
  */
 export function packEventsIntoTracks(
 	vaultEvents: VaultEvent[],
@@ -244,7 +375,7 @@ export function packEventsIntoTracks(
 
 		if (isCallout) {
 			const cx = (x1 + x2) / 2;
-			cardX = Math.round(cx - cardWidth / 2);
+			cardX = Math.max(4, Math.round(cx - cardWidth / 2));
 			cardW = cardWidth;
 			visualStartX = Math.min(x1, cardX);
 			visualEndX = Math.max(x2, cardX + cardWidth);
@@ -264,44 +395,91 @@ export function packEventsIntoTracks(
 		});
 	}
 
-	// Sort by visualStartX ascending, then startIdx ascending
-	validItems.sort((a, b) => a.visualStartX - b.visualStartX || a.startIdx - b.startIdx);
+	// 1. Separate range events from point events
+	const rangeItems = validItems.filter((i) => i.isRange);
+	const pointItems = validItems.filter((i) => !i.isRange);
 
-	const trackLastRightX: number[] = [];
+	// 2. Sort range events: sooner start date first; if tied, longer range first
+	rangeItems.sort(
+		(a, b) =>
+			a.startIdx - b.startIdx ||
+			(b.endIdx - b.startIdx) - (a.endIdx - a.startIdx) ||
+			a.visualStartX - b.visualStartX,
+	);
+
+	// 3. Sort point events: sooner start date first
+	pointItems.sort(
+		(a, b) => a.startIdx - b.startIdx || a.visualStartX - b.visualStartX,
+	);
+
 	const spans: EventTrackSpan[] = [];
+	const trackIntervals: { startX: number; endX: number }[][] = [];
+	const PADDING = 6;
 
-	for (const item of validItems) {
-		const rightEdgeX = item.visualEndX + 6; // 6px gap to next item on same track
-
-		let assignedTrack = -1;
-		for (let t = 0; t < trackLastRightX.length; t++) {
-			const lastRightX = trackLastRightX[t] ?? -Infinity;
-			if (lastRightX <= item.visualStartX) {
-				assignedTrack = t;
-				trackLastRightX[t] = rightEdgeX;
-				break;
+	function assignTrack(item: (typeof validItems)[number]): number {
+		let trackIdx = 0;
+		while (true) {
+			if (trackIdx >= trackIntervals.length) {
+				trackIntervals.push([{ startX: item.visualStartX, endX: item.visualEndX }]);
+				return trackIdx;
 			}
-		}
 
-		if (assignedTrack === -1) {
-			assignedTrack = trackLastRightX.length;
-			trackLastRightX.push(rightEdgeX);
-		}
+			const intervals = trackIntervals[trackIdx]!;
+			let hasCollision = false;
+			for (const interval of intervals) {
+				if (
+					!(
+						item.visualEndX + PADDING <= interval.startX ||
+						item.visualStartX >= interval.endX + PADDING
+					)
+				) {
+					hasCollision = true;
+					break;
+				}
+			}
 
+			if (!hasCollision) {
+				intervals.push({ startX: item.visualStartX, endX: item.visualEndX });
+				return trackIdx;
+			}
+
+			trackIdx++;
+		}
+	}
+
+	// 4. Pack range events first (so range events always take higher tracks locally over point events)
+	for (const item of rangeItems) {
+		const trackIdx = assignTrack(item);
 		spans.push({
 			event: item.event,
 			startIdx: item.startIdx,
 			endIdx: item.endIdx,
-			trackIdx: assignedTrack,
+			trackIdx,
 			textWidth: item.textWidth,
-			isRange: item.isRange,
+			isRange: true,
 			isCallout: item.isCallout,
 			cardX: item.cardX,
 			cardW: item.cardW,
 		});
 	}
 
-	return { spans, trackCount: trackLastRightX.length };
+	// 5. Pack point events into the highest available tracks at their local X location
+	for (const item of pointItems) {
+		const trackIdx = assignTrack(item);
+		spans.push({
+			event: item.event,
+			startIdx: item.startIdx,
+			endIdx: item.endIdx,
+			trackIdx,
+			textWidth: item.textWidth,
+			isRange: false,
+			isCallout: item.isCallout,
+			cardX: item.cardX,
+			cardW: item.cardW,
+		});
+	}
+
+	return { spans, trackCount: trackIntervals.length };
 }
 
 /** Backwards-compatibility alias for packEventsIntoTracks */
@@ -329,9 +507,15 @@ export function buildGraphSvg(
 	const graphBottom = graphTop + GRAPH_HEIGHT;
 
 	// ── Event Swimlane Track Layout ─────────────────────────────
-	const RANGE_TRACK_HEIGHT = 20;
-	const RANGE_BAR_HEIGHT = 16;
-	const RANGE_SWIMLANE_GAP = 6;
+	const RANGE_TRACK_HEIGHT = 30;
+	const RANGE_SWIMLANE_GAP = 8;
+	const TOP_BAR_HEIGHT = 5;
+	const TOP_BAR_Y_OFFSET = 2;
+	const CALLOUT_GAP = 3;
+	const CALLOUT_CARD_HEIGHT = 18;
+	const CALLOUT_CARD_Y_OFFSET = TOP_BAR_Y_OFFSET + TOP_BAR_HEIGHT + CALLOUT_GAP;
+	const WIDE_PILL_HEIGHT = 20;
+	const WIDE_PILL_Y_OFFSET = 4;
 
 	// Measure canvas for accurate label text widths
 	const measureCanvas = document.createElement("canvas");
@@ -353,11 +537,20 @@ export function buildGraphSvg(
 
 	// SVG height: includes swimlane tracks when visible, otherwise just the graph.
 	const totalHeight = ganttHeight > 0
-		? ganttTop + ganttHeight + SVG_BOTTOM_PAD
+		? ganttTop + ganttHeight + SVG_BOTTOM_PAD + 4
 		: graphBottom + SVG_BOTTOM_PAD;
 
 	const graphWidth = days.length * stride - BAR_GAP + LEFT_PAD + RIGHT_PAD;
-	const svgWidth = Math.max(graphWidth, ctx.minWidth ?? 0);
+	let maxVisualX = graphWidth;
+	for (const span of eventTracks.spans) {
+		const spanRight = span.isCallout
+			? span.cardX + span.cardW + RIGHT_PAD
+			: LEFT_PAD + span.endIdx * stride + BAR_WIDTH + RIGHT_PAD;
+		if (spanRight > maxVisualX) {
+			maxVisualX = spanRight;
+		}
+	}
+	const svgWidth = Math.max(maxVisualX, ctx.minWidth ?? 0);
 
 	// ── Root SVG element ─────────────────────────────────────────
 	const svg = svgEl("svg", {
@@ -521,100 +714,180 @@ export function buildGraphSvg(
 
 	// ── Unified Event Swimlanes & Dotted Connectors ──────────────
 	if (ctx.showEventLabels && eventTracks.spans.length > 0) {
-		// Pass 1 — Vertical Dotted Connector Lines (drawn behind pills)
-		const connectorsGroup = svgEl("g", { class: "daylio-event-connectors" });
+		// Event Swimlane Groups (each group contains its vertical connectors, bars/pills, and card)
+		const swimlaneGroup = svgEl("g", { class: "daylio-range-swimlanes" });
 		for (const span of eventTracks.spans) {
-			const yPill = ganttTop + span.trackIdx * RANGE_TRACK_HEIGHT;
+			const trackColor = TRACK_COLORS[span.trackIdx % TRACK_COLORS.length]!;
+			const x1 = LEFT_PAD + span.startIdx * stride;
+			const x2 = LEFT_PAD + span.endIdx * stride + BAR_WIDTH;
+			const barWidthPx = x2 - x1;
+			const pillWidth = Math.max(BAR_WIDTH, barWidthPx);
+			const yTrack = ganttTop + span.trackIdx * RANGE_TRACK_HEIGHT;
+
+			const pillGroup = svgEl("g", { class: "daylio-range-pill-group" });
+			const moodSummary = computeRangeMoodProportions(
+				days,
+				span.startIdx,
+				span.endIdx,
+			);
+			const tooltipData: RangeTooltipData = {
+				label: span.event.label ?? "",
+				isRange: span.isRange,
+				date: span.event.date,
+				endDate: span.event.endDate,
+				moodSummary,
+				trackColor,
+			};
+
+			// 1. Vertical Dotted Connector Lines (rendered first inside group so they sit behind bars/pills)
+			const yTop = span.isRange
+				? (span.isCallout
+					? yTrack + TOP_BAR_Y_OFFSET
+					: yTrack + WIDE_PILL_Y_OFFSET)
+				: yTrack + CALLOUT_CARD_Y_OFFSET;
 
 			if (!span.isRange) {
 				// Single-date event: 1 vertical dotted line
 				const cx = LEFT_PAD + span.startIdx * stride + BAR_WIDTH / 2;
-				connectorsGroup.appendChild(svgEl("line", {
+				pillGroup.appendChild(svgEl("line", {
 					x1: String(cx),
 					y1: "0",
 					x2: String(cx),
-					y2: String(yPill),
+					y2: String(yTop),
 					class: "daylio-event-connector",
+					stroke: trackColor,
 				}));
 			} else {
 				// Multi-day range event: 2 vertical dotted lines (start date and end date)
 				const cxStart = LEFT_PAD + span.startIdx * stride + BAR_WIDTH / 2;
 				const cxEnd = LEFT_PAD + span.endIdx * stride + BAR_WIDTH / 2;
 
-				connectorsGroup.appendChild(svgEl("line", {
+				pillGroup.appendChild(svgEl("line", {
 					x1: String(cxStart),
 					y1: "0",
 					x2: String(cxStart),
-					y2: String(yPill),
+					y2: String(yTop),
 					class: "daylio-event-connector",
+					stroke: trackColor,
 				}));
-				connectorsGroup.appendChild(svgEl("line", {
+				pillGroup.appendChild(svgEl("line", {
 					x1: String(cxEnd),
 					y1: "0",
 					x2: String(cxEnd),
-					y2: String(yPill),
+					y2: String(yTop),
 					class: "daylio-event-connector",
+					stroke: trackColor,
 				}));
 			}
-		}
-		svg.appendChild(connectorsGroup);
-
-		// Pass 2 — Event Swimlane Pills & Floating Callout Cards
-		const swimlaneGroup = svgEl("g", { class: "daylio-range-swimlanes" });
-		for (const span of eventTracks.spans) {
-			const x1 = LEFT_PAD + span.startIdx * stride;
-			const x2 = LEFT_PAD + span.endIdx * stride + BAR_WIDTH;
-			const barWidthPx = x2 - x1;
-			const pillWidth = Math.max(BAR_WIDTH, barWidthPx);
-			const yPill = ganttTop + span.trackIdx * RANGE_TRACK_HEIGHT;
-
-			const pillGroup = svgEl("g", { class: "daylio-range-pill-group" });
-			const rect = svgEl("rect", {
-				class: "daylio-range-pill",
-				x: String(x1),
-				y: String(yPill),
-				width: String(pillWidth),
-				height: String(RANGE_BAR_HEIGHT),
-				rx: "3",
-				ry: "3",
-			});
-			pillGroup.appendChild(rect);
-
-			const dateInfo = span.isRange
-				? `${span.event.date} → ${span.event.endDate}`
-				: span.event.date;
 
 			if (span.isCallout) {
-				const fo = svgEl("foreignObject", {
+				if (span.isRange) {
+					// 2. Top bar spanning exact start and end dates (range events only)
+					const topBarY = yTrack + TOP_BAR_Y_OFFSET;
+					const topBar = svgEl("rect", {
+						class: "daylio-range-top-bar",
+						x: String(x1),
+						y: String(topBarY),
+						width: String(pillWidth),
+						height: String(TOP_BAR_HEIGHT),
+						rx: "2.5",
+						ry: "2.5",
+						fill: trackColor,
+						stroke: trackColor,
+					});
+					pillGroup.appendChild(topBar);
+
+					// 3. Short stem connecting center of top bar to floating card
+					const cx = (x1 + x2) / 2;
+					const stemY1 = topBarY + TOP_BAR_HEIGHT;
+					const stemY2 = yTrack + CALLOUT_CARD_Y_OFFSET;
+					const stem = svgEl("line", {
+						class: "daylio-range-callout-stem",
+						x1: String(cx),
+						y1: String(stemY1),
+						x2: String(cx),
+						y2: String(stemY2),
+						stroke: trackColor,
+					});
+					pillGroup.appendChild(stem);
+				}
+				// Single-day events: no top bar, connector drops straight to card
+
+				// 3. Floating Callout Card
+				const foAttrs: Record<string, string> = {
 					x: String(span.cardX),
-					y: String(yPill),
+					y: String(yTrack + CALLOUT_CARD_Y_OFFSET),
 					width: String(span.cardW),
-					height: String(RANGE_BAR_HEIGHT),
-				});
+					height: String(CALLOUT_CARD_HEIGHT + 4),
+					style: "overflow: visible;",
+				};
+				if (span.isRange) {
+					foAttrs.class = "daylio-range-fo";
+					foAttrs["data-x1"] = String(x1);
+					foAttrs["data-x2"] = String(x2);
+					foAttrs["data-card-x"] = String(span.cardX);
+					foAttrs["data-card-w"] = String(span.cardW);
+					foAttrs["data-pill-w"] = String(pillWidth);
+					foAttrs["data-is-callout"] = "true";
+				}
+				const fo = svgEl("foreignObject", foAttrs);
 				const div = document.createElement("div");
 				div.className = "daylio-range-callout-card";
 				div.textContent = span.event.label ?? "";
-				div.title = `${span.event.label} (${dateInfo})\nClick to open note`;
+				div.style.borderColor = trackColor;
 				fo.appendChild(div);
 				pillGroup.appendChild(fo);
 			} else {
-				const fo = svgEl("foreignObject", {
+				// Wide range event: full pill with text enclosed
+				const pillY = yTrack + WIDE_PILL_Y_OFFSET;
+				const rect = svgEl("rect", {
+					class: "daylio-range-pill",
 					x: String(x1),
-					y: String(yPill),
+					y: String(pillY),
 					width: String(pillWidth),
-					height: String(RANGE_BAR_HEIGHT),
+					height: String(WIDE_PILL_HEIGHT),
+					rx: "4",
+					ry: "4",
+					fill: trackColor,
+					"fill-opacity": "0.25",
+					stroke: trackColor,
 				});
+				pillGroup.appendChild(rect);
+
+				const foAttrs: Record<string, string> = {
+					x: String(x1),
+					y: String(pillY),
+					width: String(pillWidth),
+					height: String(WIDE_PILL_HEIGHT + 4),
+					style: "overflow: visible;",
+				};
+				if (span.isRange) {
+					foAttrs.class = "daylio-range-fo";
+					foAttrs["data-x1"] = String(x1);
+					foAttrs["data-x2"] = String(x2);
+					foAttrs["data-card-x"] = String(x1);
+					foAttrs["data-card-w"] = String(span.cardW);
+					foAttrs["data-pill-w"] = String(pillWidth);
+					foAttrs["data-is-callout"] = "false";
+				}
+				const fo = svgEl("foreignObject", foAttrs);
 				const div = document.createElement("div");
 				div.className = "daylio-range-pill-text";
 				div.textContent = span.event.label ?? "";
-				div.title = `${span.event.label} (${dateInfo})\nClick to open note`;
 				fo.appendChild(div);
 				pillGroup.appendChild(fo);
 			}
 
-			const titleEl = svgEl("title");
-			titleEl.textContent = `${span.event.label} (${dateInfo})\nClick to open note`;
-			pillGroup.appendChild(titleEl);
+			// Tooltip listeners on the entire pillGroup
+			pillGroup.addEventListener("mouseenter", (evt: MouseEvent) => {
+				ctx.onEventHover?.(evt, tooltipData);
+			});
+			pillGroup.addEventListener("mousemove", (evt: MouseEvent) => {
+				ctx.onEventMove?.(evt);
+			});
+			pillGroup.addEventListener("mouseleave", () => {
+				ctx.onEventLeave?.();
+			});
 
 			const filePath = span.event.filePath;
 			pillGroup.addEventListener("click", (evt) => {

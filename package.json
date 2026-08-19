@@ -11,7 +11,9 @@
 		"test:watch": "vitest",
 		"test:coverage": "vitest run --coverage",
 		"install:vault": "node \"scripts/build_vault.cjs\"",
-		"build:vault": "npm run build && npm run install:vault"
+		"build:vault": "npm run build && npm run install:vault",
+		"install:custom": "node \"scripts/install_custom_vault.cjs\"",
+		"build:custom": "npm run build && npm run install:custom"
 	},
 	"keywords": [],
 	"license": "MIT",

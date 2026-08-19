@@ -16,7 +16,11 @@ import {
 } from "./types";
 import { parseDaylioCsv, groupByDay } from "./csv-parser";
 import { scanVaultEvents } from "./vault-scanner";
-import { buildGraphSvg } from "./graph-builder";
+import {
+	buildGraphSvg,
+	computeStickyLabelPosition,
+	type RangeTooltipData,
+} from "./graph-builder";
 import {
 	computeAnchoredScroll,
 	computeIntrinsicWidth,
@@ -32,6 +36,7 @@ const SAVE_DEBOUNCE_MS = 300;
 export class DaylioGraphView extends ItemView {
 	private plugin: HasDaylioSettings & { app: App };
 	private scrollContainer: HTMLElement | null = null;
+	private tooltipEl: HTMLElement | null = null;
 	private scrollRatio = 1;
 	private zoomSlider: HTMLInputElement | null = null;
 	private zoomDebounceTimer: ReturnType<typeof setTimeout> | undefined;
@@ -42,6 +47,8 @@ export class DaylioGraphView extends ItemView {
 	 *  most-recent anchor calculation takes effect, preventing stale RAF
 	 *  callbacks from snapping the scroll to wrong positions during rapid zoom. */
 	private scrollRafId: number | null = null;
+	/** Pending requestAnimationFrame id for sticky range label updates. */
+	private stickyRafId: number | null = null;
 	/** The scroll-left value that the pending RAF will apply.  Set
 	 *  synchronously by quickRedraw so that a subsequent wheel event
 	 *  (arriving before the RAF fires) reads the correct logical scroll
@@ -80,6 +87,9 @@ export class DaylioGraphView extends ItemView {
 
 	onClose(): Promise<void> {
 		clearTimeout(this.zoomDebounceTimer);
+		if (this.stickyRafId !== null) {
+			cancelAnimationFrame(this.stickyRafId);
+		}
 		this.containerEl.empty();
 		return Promise.resolve();
 	}
@@ -115,6 +125,10 @@ export class DaylioGraphView extends ItemView {
 
 		container.empty();
 		container.addClass("daylio-graph-root");
+
+		// ── Floating Rich Tooltip ───────────────────────────────
+		this.tooltipEl = container.createDiv({ cls: "daylio-tooltip" });
+		this.tooltipEl.style.display = "none";
 
 		// ── Load CSV ────────────────────────────────────────────
 		const csvPath = this.plugin.settings.csvPath;
@@ -383,6 +397,14 @@ export class DaylioGraphView extends ItemView {
 			{ passive: false },
 		);
 
+		this.scrollContainer.addEventListener(
+			"scroll",
+			() => {
+				this.scheduleUpdateStickyRangeLabels();
+			},
+			{ passive: true },
+		);
+
 		this.scrollContainer.appendChild(this.buildSvg(this.plugin.settings.barWidth));
 
 		requestAnimationFrame(() => {
@@ -392,6 +414,7 @@ export class DaylioGraphView extends ItemView {
 					this.scrollContainer.clientWidth;
 				this.scrollContainer.scrollLeft =
 					maxScroll * this.scrollRatio;
+				this.updateStickyRangeLabels();
 			}
 		});
 
@@ -423,6 +446,7 @@ export class DaylioGraphView extends ItemView {
 			totalDragPx = 0;
 			startX = evt.clientX;
 			startScrollLeft = scrollEl.scrollLeft;
+			this.intendedScrollLeft = null;
 			document.body.classList.add("daylio-is-panning");
 			// Prevent text selection while dragging.
 			evt.preventDefault();
@@ -435,6 +459,8 @@ export class DaylioGraphView extends ItemView {
 			const delta = startX - evt.clientX;
 			totalDragPx = Math.abs(delta);
 			scrollEl.scrollLeft = startScrollLeft + delta;
+			this.intendedScrollLeft = null;
+			this.updateStickyRangeLabels();
 		});
 
 		this.registerDomEvent(document, "mouseup", () => {
@@ -467,7 +493,136 @@ export class DaylioGraphView extends ItemView {
 			openFile: (fp) => this.openFile(fp),
 			showEventLabels: this.plugin.settings.showEventLabels,
 			minWidth,
+			onEventHover: (evt, data) => this.showTooltip(evt, data),
+			onEventMove: (evt) => this.positionTooltip(evt),
+			onEventLeave: () => this.hideTooltip(),
 		});
+	}
+
+	/** Schedule an update of sticky range labels via RAF. */
+	private scheduleUpdateStickyRangeLabels(): void {
+		if (this.stickyRafId !== null) return;
+		this.stickyRafId = requestAnimationFrame(() => {
+			this.stickyRafId = null;
+			this.updateStickyRangeLabels();
+		});
+	}
+
+	/**
+	 * Pins the label text of partially-visible range events to the visible
+	 * left edge of the viewport when their beginning is scrolled out of frame.
+	 */
+	private updateStickyRangeLabels(): void {
+		if (!this.scrollContainer) return;
+		const visibleLeft =
+			this.scrollContainer.scrollLeft - this.intendedMarginLeft;
+		const rangeFos =
+			this.scrollContainer.querySelectorAll<SVGForeignObjectElement>(
+				".daylio-range-fo",
+			);
+
+		for (let i = 0; i < rangeFos.length; i++) {
+			const fo = rangeFos[i];
+			if (!fo) continue;
+			const x1 = parseFloat(fo.getAttribute("data-x1") ?? "0");
+			const x2 = parseFloat(fo.getAttribute("data-x2") ?? "0");
+			const cardX = parseFloat(fo.getAttribute("data-card-x") ?? String(x1));
+			const cardW = parseFloat(fo.getAttribute("data-card-w") ?? "0");
+			const pillW = parseFloat(fo.getAttribute("data-pill-w") ?? "0");
+			const isCallout = fo.getAttribute("data-is-callout") === "true";
+
+			const result = computeStickyLabelPosition({
+				x1,
+				x2,
+				cardX,
+				cardW,
+				pillW,
+				isCallout,
+				visibleLeft,
+			});
+
+			fo.setAttribute("x", String(result.x));
+			fo.setAttribute("width", String(result.width));
+		}
+	}
+
+	/** Display rich tooltip with event details and mood proportion bar. */
+	private showTooltip(event: MouseEvent, data: RangeTooltipData): void {
+		if (!this.tooltipEl || !this.scrollContainer) return;
+		this.tooltipEl.empty();
+
+		// Title
+		const titleEl = this.tooltipEl.createDiv({ cls: "daylio-tooltip-title" });
+		titleEl.textContent = data.label;
+
+		// Dates
+		const datesEl = this.tooltipEl.createDiv({ cls: "daylio-tooltip-dates" });
+		if (data.isRange && data.endDate) {
+			const daysText = `${data.moodSummary.totalDays} day${data.moodSummary.totalDays === 1 ? "" : "s"}`;
+			datesEl.textContent = `${data.date} → ${data.endDate} (${daysText})`;
+		} else {
+			datesEl.textContent = data.date;
+		}
+
+		// For range events: Mood Proportion Bar Graph
+		if (data.isRange && data.moodSummary.totalEntries > 0) {
+			const barEl = this.tooltipEl.createDiv({ cls: "daylio-tooltip-bar" });
+			for (const prop of data.moodSummary.proportions) {
+				if (prop.count === 0) continue;
+				const seg = barEl.createDiv({ cls: "daylio-tooltip-bar-segment" });
+				seg.style.width = `${prop.percentage.toFixed(1)}%`;
+				seg.style.backgroundColor = this.plugin.settings.moodColors[prop.mood];
+			}
+
+			const legendEl = this.tooltipEl.createDiv({ cls: "daylio-tooltip-legend" });
+			for (const prop of data.moodSummary.proportions) {
+				if (prop.count === 0) continue;
+				const item = legendEl.createSpan({ cls: "daylio-tooltip-legend-item" });
+				const swatch = item.createSpan({ cls: "daylio-tooltip-swatch" });
+				swatch.style.backgroundColor = this.plugin.settings.moodColors[prop.mood];
+				item.appendText(`${prop.count} ${prop.mood}`);
+			}
+		} else if (data.isRange && data.moodSummary.totalEntries === 0) {
+			const emptyEl = this.tooltipEl.createDiv({ cls: "daylio-tooltip-empty" });
+			emptyEl.textContent = "No mood entries in this range";
+		}
+
+		// Hint
+		const hintEl = this.tooltipEl.createDiv({ cls: "daylio-tooltip-hint" });
+		hintEl.textContent = "Click to open note";
+
+		this.tooltipEl.style.display = "block";
+		this.positionTooltip(event);
+	}
+
+	/** Position the floating tooltip relative to the cursor inside the root container. */
+	private positionTooltip(event: MouseEvent): void {
+		if (!this.tooltipEl || !this.scrollContainer) return;
+		const rootRect =
+			this.scrollContainer.parentElement?.getBoundingClientRect() ??
+			this.scrollContainer.getBoundingClientRect();
+		const tooltipWidth = this.tooltipEl.offsetWidth || 200;
+		const tooltipHeight = this.tooltipEl.offsetHeight || 80;
+
+		let left = event.clientX - rootRect.left + 12;
+		let top = event.clientY - rootRect.top + 12;
+
+		if (left + tooltipWidth > rootRect.width - 12) {
+			left = event.clientX - rootRect.left - tooltipWidth - 12;
+		}
+		if (top + tooltipHeight > rootRect.height - 12) {
+			top = event.clientY - rootRect.top - tooltipHeight - 12;
+		}
+
+		this.tooltipEl.style.left = `${Math.max(8, left)}px`;
+		this.tooltipEl.style.top = `${Math.max(8, top)}px`;
+	}
+
+	/** Hide the floating tooltip. */
+	private hideTooltip(): void {
+		if (this.tooltipEl) {
+			this.tooltipEl.style.display = "none";
+		}
 	}
 
 	/**
@@ -548,6 +703,7 @@ export class DaylioGraphView extends ItemView {
 				this.scrollContainer.scrollLeft =
 					maxScroll * this.scrollRatio;
 			}
+			this.updateStickyRangeLabels();
 		});
 	}
 }

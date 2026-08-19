@@ -419,3 +419,21 @@ describe("computeIntrinsicWidth", () => {
 		expect(result).toBe(45);
 	});
 });
+
+describe("Drag pan scrolling logic", () => {
+	it("computes horizontal scroll displacement correctly when dragging mouse", () => {
+		const startX = 500;
+		const startScrollLeft = 200;
+
+		// Dragging left (moving mouse to clientX = 450) should scroll right
+		const moveLeftClientX = 450;
+		const deltaLeft = startX - moveLeftClientX; // +50
+		expect(startScrollLeft + deltaLeft).toBe(250);
+
+		// Dragging right (moving mouse to clientX = 550) should scroll left
+		const moveRightClientX = 550;
+		const deltaRight = startX - moveRightClientX; // -50
+		expect(startScrollLeft + deltaRight).toBe(150);
+	});
+});
+

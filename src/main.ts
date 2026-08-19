@@ -40,9 +40,16 @@ export {
 	computeEntrySpans,
 	packEventsIntoTracks,
 	packRangeEventsIntoTracks,
+	computeRangeMoodProportions,
+	computeStickyLabelPosition,
 	type EntrySpan,
 	type EventTrackSpan,
 	type RangeTrackSpan,
+	type MoodProportion,
+	type RangeMoodSummary,
+	type RangeTooltipData,
+	type StickyLabelParams,
+	type StickyLabelResult,
 } from "./graph-builder";
 export {
 	computeAnchoredScroll,

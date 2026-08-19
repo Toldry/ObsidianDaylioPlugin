@@ -4,6 +4,7 @@ import type { VaultEvent } from "./types";
 export const DATE_PREFIX_REGEX = /^(\d{4}-\d{2}-\d{2})/;
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const DATE_RANGE_REGEX = /^(\d{4}-\d{2}-\d{2})\s*(?:->|\.\.|to)\s*(\d{4}-\d{2}-\d{2})$/;
+const ONGOING_RANGE_REGEX = /^(\d{4}-\d{2}-\d{2})\s*(?:->|\.\.|to)\s*$/;
 
 export interface ParsedEventItem {
 	label: string;
@@ -17,7 +18,8 @@ export interface ParsedEventItem {
  * Examples:
  *   - "Got a cat" -> Point event on defaultStartDate
  *   - "Summer Vacation | 2024-08-12 -> 2024-08-28" -> Range event (Aug 12 - Aug 28)
- *   - "Summer Vacation | 2024-08-28" -> Range event (defaultStartDate -> Aug 28)
+ *   - "Ongoing Project | 2024-01-01 -> " -> Range event (2024-01-01 -> today)
+ *   - "Milestone | 2024-05-14" -> Point event on 2024-05-14 (pipe overrides filename date)
  *   - "Cats | Dogs" -> Point event with label "Cats | Dogs" (since "Dogs" is not a date)
  */
 export function parseEventString(
@@ -53,15 +55,33 @@ export function parseEventString(
 		};
 	}
 
-	if (ISO_DATE_REGEX.test(lastPart)) {
+	const ongoingMatch = lastPart.match(ONGOING_RANGE_REGEX);
+	if (ongoingMatch?.[1]) {
 		const label = parts.slice(0, -1).join(" | ").trim();
-		const startDate = defaultStartDate;
-		const endDate = lastPart;
-		const isRange = Boolean(endDate && endDate >= startDate);
+		const startDate = ongoingMatch[1];
+		const now = new Date();
+		const yyyy = now.getFullYear();
+		const mm = String(now.getMonth() + 1).padStart(2, "0");
+		const dd = String(now.getDate()).padStart(2, "0");
+		const todayStr = `${yyyy}-${mm}-${dd}`;
+		const endDate = todayStr >= startDate ? todayStr : startDate;
 		return {
 			label,
 			startDate,
-			endDate: isRange ? endDate : undefined,
+			endDate,
+			isRange: true,
+		};
+	}
+
+	if (ISO_DATE_REGEX.test(lastPart)) {
+		// Single date specified in pipe: treated as a point event on that date (overrides filename date)
+		const label = parts.slice(0, -1).join(" | ").trim();
+		const startDate = lastPart;
+		const isRange = Boolean(noteEndDate && noteEndDate >= startDate);
+		return {
+			label,
+			startDate,
+			endDate: isRange ? noteEndDate : undefined,
 			isRange,
 		};
 	}

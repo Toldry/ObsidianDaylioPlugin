@@ -11,8 +11,12 @@
 import fs from "fs";
 import path from "path";
 
+import { parseEventString } from "../../src/main";
+
 export interface VaultEventOnDisk {
 	date: string;
+	endDate?: string;
+	isRange?: boolean;
 	label?: string;  // only present when daylio_event frontmatter is set
 	filePath: string;
 }
@@ -123,11 +127,14 @@ export function readVaultEventsFromDisk(
 				filePath,
 			});
 		} else {
+			const noteEndDate = typeof frontmatter?.["daylio_end"] === "string" ? frontmatter["daylio_end"] : undefined;
 			for (const item of rawItems) {
-				const label = item.includes("|") ? item.split("|")[0]?.trim() : item;
+				const parsed = parseEventString(item, dateMatch[1], noteEndDate);
 				events.push({
-					date: dateMatch[1],
-					label,
+					date: parsed.startDate,
+					endDate: parsed.endDate,
+					isRange: parsed.isRange,
+					label: parsed.label,
 					filePath,
 				});
 			}

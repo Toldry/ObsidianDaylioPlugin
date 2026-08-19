@@ -351,5 +351,47 @@ describe("scanVaultEvents — scanDir filtering", () => {
 			filePath: "2024-08-12 Vacation.md",
 		});
 	});
+
+	it("treats unspecified end date 'event | YYYY-MM-DD -> ' as an ongoing event continuing until present day", () => {
+		const app = buildMockApp([
+			{
+				basename: "2024-01-15 Project",
+				path: "2024-01-15 Project.md",
+				frontmatter: {
+					daylio_event: "Ongoing Fitness Plan | 2024-01-01 -> ",
+				},
+			},
+		]);
+		const events = scanVaultEvents(app);
+		expect(events).toHaveLength(1);
+		expect(events[0]?.label).toBe("Ongoing Fitness Plan");
+		expect(events[0]?.date).toBe("2024-01-01");
+		expect(events[0]?.isRange).toBe(true);
+		expect(events[0]?.endDate).toBeDefined();
+		// endDate should be today's ISO date
+		const now = new Date();
+		const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+		expect(events[0]?.endDate).toBe(todayStr);
+	});
+
+	it("treats 'event | YYYY-MM-DD' as a single-day point event overriding the filename date", () => {
+		const app = buildMockApp([
+			{
+				basename: "2024-01-01 Journal",
+				path: "2024-01-01 Journal.md",
+				frontmatter: {
+					daylio_event: "Got a cat | 2024-05-14",
+				},
+			},
+		]);
+		const events = scanVaultEvents(app);
+		expect(events).toHaveLength(1);
+		expect(events[0]?.label).toBe("Got a cat");
+		// Overrides filename date 2024-01-01 to 2024-05-14
+		expect(events[0]?.date).toBe("2024-05-14");
+		expect(events[0]?.endDate).toBeUndefined();
+		expect(events[0]?.isRange).toBeFalsy();
+	});
 });
+
 
