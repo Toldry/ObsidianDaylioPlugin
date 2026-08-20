@@ -2,7 +2,7 @@
 
 [![Download Demo Vault](https://img.shields.io/badge/Demo_Vault-Download_Example_Vault-purple?style=for-the-badge&logo=obsidian)](../../releases/tag/demo-vault)
 
-An [Obsidian](https://obsidian.md/) plugin that renders [Daylio](https://daylio.net/) mood data as a colour-coded graph, annotated with Obsidian vault entries.
+An [Obsidian](https://obsidian.md/) plugin that renders [Daylio](https://daylio.net/) mood data as a color-coded graph, annotated with Obsidian vault entries.
 
 ## Quick Start / Demo Vault
 
@@ -16,7 +16,7 @@ Download the **[Example Vault Zip](../../releases/download/demo-vault/example-va
 
 ### From the Community Plugin browser (once published)
 
-1. Open Obsidian → Settings → Community Plugins → Browse.
+1. Open **Settings → Community plugins → Browse**.
 2. Search for **Daylio Mood Graph** and install.
 3. Enable the plugin.
 
@@ -24,7 +24,7 @@ Download the **[Example Vault Zip](../../releases/download/demo-vault/example-va
 
 1. Download `main.js`, `main.js.map`, `manifest.json`, and `styles.css` from the latest [GitHub release](../../releases/latest).
 2. Copy them into the Obsidian vault at: `<OBSIDIAN_VAULT_ROOT>/.obsidian/plugins/daylio-mood-graph/`
-3. In Obsidian: Settings → Community Plugins → enable **Daylio Mood Graph**.
+3. In Obsidian: **Settings → Community plugins** → enable **Daylio Mood Graph**.
 
 ## Setup
 
@@ -41,7 +41,7 @@ To associate entries with specific dates, the `.md` file names must begin with a
 
 ### 3. Tell the plugin where the CSV is
 
-Settings → Daylio Mood Graph → **CSV file path**. Enter the path relative
+**Settings → Daylio Mood Graph → CSV file path**. Enter the path relative
 to the Obsidian vault root, e.g.:
 
 ```
@@ -50,17 +50,17 @@ attachments/daylio_export.csv
 
 ### 4. Open the graph
 
-Click the smiley-face icon in the left ribbon, or run the command
+Select the smiley-face icon in the left ribbon, or run the command
 **Daylio Mood Graph: Open mood graph** from the command palette
-(<kbd>Ctrl</kbd>+<kbd>P</kbd> / <kbd>Cmd</kbd>+<kbd>P</kbd>).
+(`Ctrl+P` / `Command+P`).
 
-The graph opens as a horizontal split pane below the current editor.
+The graph opens as a horizontal split pane below the active note.
 
 ## Annotating the graph with vault events
 
 Vault notes can annotate the graph in two ways: **Point Events** (single-date milestones) and **Range Events** (multi-day timeline spans).
 
-1. Inside an Obsidian entry, press <kbd>Ctrl</kbd> + <kbd>;</kbd> to add a file property, or run the command **Add file property** from the command palette (<kbd>Ctrl</kbd>+<kbd>P</kbd> / <kbd>Cmd</kbd>+<kbd>P</kbd>).
+1. Inside an Obsidian entry, press `Ctrl+;` (Windows/Linux) or `Command+;` (macOS) to add a note property, or run the command **Add file property** from the command palette (`Ctrl+P` / `Command+P`).
 2. Set the property name to `daylio_event`.
 3. Write the name of the event, and specify date range if needed:
 
@@ -121,9 +121,9 @@ An unspecified end-date is treated as an ongoing event.
 | Setting | Description | Default |
 |---|---|---|
 | CSV file path | Path to Daylio CSV export, relative to the vault root | *(empty)* |
-| Event scan directory | Restrict vault-event scanning to this subdirectory (leave blank to scan the whole vault) | *(empty)* |
+| Event scan folder | Restrict vault-event scanning to this folder (leave blank to scan the whole vault) | *(empty)* |
 | Show event labels | Whether event label cards are shown below the graph | On |
-| Mood colours | A colour picker for each of the five mood levels | Daylio palette |
+| Mood colors | A color picker for each of the five mood levels | Daylio palette |
 
 ## Compatibility
 
@@ -144,7 +144,7 @@ and `styles.css` into the Obsidian vault's plugin folder and reload Obsidian.
 The shorthand `npm run update:test-vault` builds and copies in one step.
 
 > [!TIP]
-> **Developer Workflow Tip:** It is recommended to keybind Obsidian's built-in command **"Reload app without saving"** to a hotkey such as <kbd>Ctrl</kbd>+<kbd>R</kbd> (or <kbd>Cmd</kbd>+<kbd>R</kbd>) under **Settings → Hotkeys**. This enables a rapid development loop: run `npm run update:test-vault`, switch to Obsidian, and press <kbd>Ctrl</kbd>+<kbd>R</kbd> to see changes instantly.
+> **Developer Workflow Tip:** It is recommended to keybind Obsidian's built-in command **"Reload app without saving"** to a keyboard shortcut such as `Ctrl+R` (Windows/Linux) or `Command+R` (macOS) under **Settings → Hotkeys**. This enables a rapid development loop: run `npm run update:test-vault`, switch to Obsidian, and press `Ctrl+R` (or `Command+R`) to see changes instantly.
 
 ### Running the tests
 

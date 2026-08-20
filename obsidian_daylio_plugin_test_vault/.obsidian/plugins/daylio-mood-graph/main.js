@@ -1507,14 +1507,14 @@ var DaylioSettingTab = class extends import_obsidian3.PluginSettingTab {
       });
     });
     const scanDirDesc = (dir) => {
-      const base = "Vault-relative subdirectory to scan for event notes (e.g. entries). Leave blank to scan the whole vault.";
+      const base = "Vault-relative folder to scan for event notes (e.g. entries). Leave blank to scan the whole vault.";
       const trimmed = dir.trim();
       if (!trimmed) return base;
       const prefix = trimmed.replace(/\/+$/, "") + "/";
       const count = this.app.vault.getMarkdownFiles().filter((f) => f.path.startsWith(prefix) && DATE_PREFIX_REGEX.test(f.basename)).length;
       return `${base} \u2014 ${count} valid date-prefixed note${count === 1 ? "" : "s"} found in "${trimmed}".`;
     };
-    const scanDirSetting = new import_obsidian3.Setting(containerEl).setName("Event scan directory").setDesc(scanDirDesc(this.plugin.settings.eventScanDir)).addText(
+    const scanDirSetting = new import_obsidian3.Setting(containerEl).setName("Event scan folder").setDesc(scanDirDesc(this.plugin.settings.eventScanDir)).addText(
       (text) => text.setPlaceholder("entries").setValue(this.plugin.settings.eventScanDir).onChange(async (value) => {
         const trimmed = (0, import_obsidian3.normalizePath)(value.trim());
         this.plugin.settings.eventScanDir = trimmed;
@@ -1530,7 +1530,7 @@ var DaylioSettingTab = class extends import_obsidian3.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian3.Setting(containerEl).setName("Mood colours").setHeading();
+    new import_obsidian3.Setting(containerEl).setName("Mood colors").setHeading();
     for (const mood of MOOD_LEVELS) {
       new import_obsidian3.Setting(containerEl).setName(mood.charAt(0).toUpperCase() + mood.slice(1)).addColorPicker(
         (picker) => picker.setValue(this.plugin.settings.moodColors[mood]).onChange(async (value) => {
@@ -1539,7 +1539,7 @@ var DaylioSettingTab = class extends import_obsidian3.PluginSettingTab {
         })
       );
     }
-    new import_obsidian3.Setting(containerEl).setName("Reset colours to defaults").addButton(
+    new import_obsidian3.Setting(containerEl).setName("Reset colors to defaults").addButton(
       (btn) => btn.setButtonText("Reset").onClick(async () => {
         this.plugin.settings.moodColors = {
           ...DEFAULT_MOOD_COLORS

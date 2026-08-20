@@ -59,10 +59,10 @@ export class DaylioSettingTab extends PluginSettingTab {
 					});
 			});
 
-		// ── Event scan directory ─────────────────────────────────
+		// ── Event scan folder ────────────────────────────────────
 		const scanDirDesc = (dir: string): string => {
 			const base =
-				"Vault-relative subdirectory to scan for event notes (e.g. entries). " +
+				"Vault-relative folder to scan for event notes (e.g. entries). " +
 				"Leave blank to scan the whole vault.";
 			const trimmed = dir.trim();
 			if (!trimmed) return base;
@@ -75,7 +75,7 @@ export class DaylioSettingTab extends PluginSettingTab {
 		};
 
 		const scanDirSetting = new Setting(containerEl)
-			.setName("Event scan directory")
+			.setName("Event scan folder")
 			.setDesc(scanDirDesc(this.plugin.settings.eventScanDir))
 			.addText((text) =>
 				text
@@ -105,7 +105,7 @@ export class DaylioSettingTab extends PluginSettingTab {
 					}),
 			);
 
-		new Setting(containerEl).setName("Mood colours").setHeading();
+		new Setting(containerEl).setName("Mood colors").setHeading();
 
 		for (const mood of MOOD_LEVELS) {
 			new Setting(containerEl)
@@ -121,7 +121,7 @@ export class DaylioSettingTab extends PluginSettingTab {
 		}
 
 		new Setting(containerEl)
-			.setName("Reset colours to defaults")
+			.setName("Reset colors to defaults")
 			.addButton((btn) =>
 				btn.setButtonText("Reset").onClick(async () => {
 					this.plugin.settings.moodColors = {
