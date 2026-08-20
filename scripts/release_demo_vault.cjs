@@ -10,7 +10,7 @@ const testVaultDir = path.join(rootDir, "obsidian_daylio_plugin_test_vault");
 const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
 const version = pkg.version;
 
-console.log(`\n=== Packaging Demo Vault for plugin v${version} ===\n`);
+console.log(`\n=== Packaging Demo Vault for plugin ${version} ===\n`);
 
 // 1. Rebuild plugin and install into test vault
 console.log("1. Building and syncing latest plugin to test vault...");
@@ -25,7 +25,7 @@ if (fs.existsSync(workspaceFile)) {
 
 // 3. Create zip archives (generic name and versioned name)
 const genericZip = path.join(rootDir, "example-vault-daylio-demo.zip");
-const versionedZip = path.join(rootDir, `example-vault-daylio-demo-v${version}.zip`);
+const versionedZip = path.join(rootDir, `example-vault-daylio-demo-${version}.zip`);
 
 console.log(`3. Creating zip archives: ${path.basename(genericZip)} and ${path.basename(versionedZip)}...`);
 
@@ -40,11 +40,28 @@ if (process.platform === "win32") {
 // 4. Upload to GitHub demo-vault release
 console.log("4. Uploading assets to GitHub demo-vault release...");
 try {
-	execSync(`gh release upload demo-vault "${genericZip}" "${versionedZip}" --clobber`, { cwd: rootDir, stdio: "inherit" });
-	execSync(`gh release edit demo-vault --title "Daylio Mood Graph — Example Demo Vault (v${version})" --notes "Pre-configured demo vault containing sample Daylio data and event notes. Plugin version: v${version} (updated ${new Date().toISOString().split('T')[0]})."`, { cwd: rootDir, stdio: "inherit" });
+	let exists = false;
+	try {
+		execSync("gh release view demo-vault", { cwd: rootDir, stdio: "ignore" });
+		exists = true;
+	} catch {
+		exists = false;
+	}
+
+	const title = `Daylio Mood Graph — Demo Vault (${version})`;
+	const notes = `Pre-configured demo vault containing sample Daylio data and event notes. Plugin version: ${version} (updated ${new Date().toISOString().split("T")[0]}).`;
+
+	if (exists) {
+		execSync(`gh release upload demo-vault "${genericZip}" "${versionedZip}" --clobber`, { cwd: rootDir, stdio: "inherit" });
+		execSync(`gh release edit demo-vault --title "${title}" --notes "${notes}"`, { cwd: rootDir, stdio: "inherit" });
+	} else {
+		console.log("Release 'demo-vault' does not exist yet. Creating it...");
+		execSync(`gh release create demo-vault "${genericZip}" "${versionedZip}" --title "${title}" --notes "${notes}"`, { cwd: rootDir, stdio: "inherit" });
+	}
 	console.log("\n✅ Demo vault release successfully updated!");
 } catch (err) {
 	console.error("Failed to upload via gh CLI. Ensure 'gh' is authenticated.", err.message);
+	process.exitCode = 1;
 } finally {
 	// 5. Cleanup temporary zip files
 	if (fs.existsSync(genericZip)) fs.unlinkSync(genericZip);

@@ -341,16 +341,14 @@ The plugin uses an automated GitHub Actions release workflow triggered on versio
    - Builds the production bundle (`build/main.js`, `manifest.json`, `styles.css`).
    - Generates cryptographic artifact attestations for provenance.
    - Publishes the GitHub release with only the 3 plugin release assets attached (`main.js`, `manifest.json`, `styles.css`).
+   - Packages and updates the permanent `demo-vault` release with versioned and generic archives (`example-vault-daylio-demo.zip` and `example-vault-daylio-demo-<VERSION>.zip`).
 
-### Updating the Demo Vault Release
+### Updating the Demo Vault Release Manually (Optional)
 
-The demo test vault is hosted separately under the permanent `demo-vault` release tag on GitHub to keep plugin version releases clean.
-
-To package and update the demo vault release with versioned and generic archives:
+The demo test vault is hosted separately under the permanent `demo-vault` release tag on GitHub to keep plugin version releases clean. It is automatically updated on every version tag release via GitHub Actions, but can also be manually packaged and updated at any time:
 ```bash
 npm run release:demo-vault
 ```
-This script builds the plugin, syncs it to the test vault, creates both `example-vault-daylio-demo.zip` and `example-vault-daylio-demo-v<VERSION>.zip`, and uploads them to the `demo-vault` release via GitHub CLI (`gh`).
 
 
 
