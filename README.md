@@ -139,7 +139,7 @@ npm install # first time only
 npm run build
 ```
 
-After building, copy `build/main.js`, `build/main.js.map`, `manifest.json`,
+After building, copy `build/main.js`, `manifest.json`,
 and `styles.css` into the Obsidian vault's plugin folder and reload Obsidian.
 The shorthand `npm run update:test-vault` builds and copies in one step.
 

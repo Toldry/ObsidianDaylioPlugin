@@ -62,11 +62,18 @@ export const RIGHT_PAD = 20;
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 /** Create an SVG element and set attributes in one call. */
-function svgEl(tag: string, attrs?: Record<string, string>): SVGElement {
+function svgEl(tag: string, attrs?: Readonly<Record<string, string>>): SVGElement {
 	const el = document.createElementNS(SVG_NS, tag);
 	if (attrs) {
-		for (const [k, v] of Object.entries(attrs)) {
-			el.setAttribute(k, v);
+		const keys = Object.keys(attrs);
+		for (let i = 0; i < keys.length; i++) {
+			const k = keys[i];
+			if (k) {
+				const v = attrs[k];
+				if (typeof v === "string") {
+					el.setAttribute(k, v);
+				}
+			}
 		}
 	}
 	return el;

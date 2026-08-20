@@ -47,7 +47,7 @@ if (!vaultPath.replace(/[/\\]$/, '').endsWith('daylio-mood-graph')) {
 }
 
 const build_path = path.join(rootDir, 'build');
-const build_files = ['main.js', 'main.js.map'];
+const build_files = ['main.js'];
 const static_files = ['manifest.json', 'styles.css'];
 
 if (!fs.existsSync(vaultPath)) {

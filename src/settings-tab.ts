@@ -14,6 +14,27 @@ export class DaylioSettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
+	getSettingDefinitions(): unknown[] {
+		return [
+			{
+				name: "CSV file path",
+				description: "Select the Daylio CSV export file from your vault.",
+			},
+			{
+				name: "Event scan folder",
+				description: "Vault-relative folder to scan for event notes (e.g. entries). Leave blank to scan the whole vault.",
+			},
+			{
+				name: "Show event labels",
+				description: "Display the floating label cards for notes that have a daylio_event frontmatter field.",
+			},
+			{
+				name: "Mood colors",
+				description: "Customize colors for rad, good, meh, bad, and awful mood levels.",
+			},
+		];
+	}
+
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();

@@ -45,13 +45,12 @@ into the vault's plugin folder), not the TypeScript sources directly.
 
 ### Source maps and debugging
 
-- **Dev** (`npm run dev`): `sourcemap: "inline"` — the full source map is
-  embedded as a base64 data URI inside `main.js`. No external `.map` file is
-  fetched, so Obsidian's `app://` scheme never blocks it. After reloading
-  Obsidian, TypeScript files appear under DevTools → Sources → Page →
-  `plugin:daylio-mood-graph` → `src/`.
-- **Prod** (`npm run build`): `sourcemap: "linked"` — writes `build/main.js.map`
-  as a separate file and adds a `//# sourceMappingURL=main.js.map` comment.
+- **All builds** (`npm run dev` and `npm run build`): `sourcemap: "inline"` —
+  the full source map is embedded as a base64 data URI directly inside `main.js`.
+  No external `.map` file is generated, ensuring source maps work reliably
+  without being blocked by Obsidian's `app://` scheme or packaging quirks.
+  After reloading Obsidian, TypeScript files appear under DevTools → Sources →
+  Page → `plugin:daylio-mood-graph` → `src/`.
 
 ## Project structure
 

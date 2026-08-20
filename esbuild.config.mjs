@@ -37,10 +37,9 @@ const context = await esbuild.context({
 	target: "es2018",
 	logLevel: "info",
 	loader: { ".svg": "text" },
-	// Dev: inline embeds the full map as a base64 data URI — no external
-	// file fetch, so Obsidian's app:// scheme never blocks it.
-	// Prod: linked writes main.js.map as a separate release asset.
-	sourcemap: prod ? "linked" : "inline",
+	// Inline embeds the full map as a base64 data URI directly inside main.js.
+	// This avoids separate .map files and guarantees source maps work across all environments.
+	sourcemap: "inline",
 	treeShaking: true,
 	outfile: "build/main.js",
 	minify: false,

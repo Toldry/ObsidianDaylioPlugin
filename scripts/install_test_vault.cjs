@@ -6,8 +6,6 @@ const obsidian_vault_path = 'obsidian_daylio_plugin_test_vault/.obsidian/plugins
 const build_path = 'build/'
 const build_files = [
     'main.js',
-    'main.js.map',
-
 ]
 
 const static_files = [
