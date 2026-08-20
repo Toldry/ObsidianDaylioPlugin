@@ -344,15 +344,13 @@ The plugin uses an automated GitHub Actions release workflow triggered on versio
 
 ### Updating the Demo Vault Release
 
-The demo test vault is hosted separately under the permanent `demo-vault` release tag on GitHub to keep plugin version releases clean:
-- To update the demo vault artifact:
-  ```bash
-  # Build and sync latest plugin files to test vault
-  npm run update:test-vault
-  # Package and upload to the demo-vault release
-  Compress-Archive -Path obsidian_daylio_plugin_test_vault -DestinationPath example-vault-daylio-demo.zip -Force
-  gh release upload demo-vault example-vault-daylio-demo.zip --clobber
-  Remove-Item example-vault-daylio-demo.zip
-  ```
+The demo test vault is hosted separately under the permanent `demo-vault` release tag on GitHub to keep plugin version releases clean.
+
+To package and update the demo vault release with versioned and generic archives:
+```bash
+npm run release:demo-vault
+```
+This script builds the plugin, syncs it to the test vault, creates both `example-vault-daylio-demo.zip` and `example-vault-daylio-demo-v<VERSION>.zip`, and uploads them to the `demo-vault` release via GitHub CLI (`gh`).
+
 
 
