@@ -70,6 +70,11 @@ var MOOD_TO_LANE = {
   bad: 3,
   awful: 4
 };
+var MouseButton = {
+  Main: 0,
+  Auxiliary: 1,
+  Secondary: 2
+};
 
 // src/graph-view.ts
 var import_obsidian2 = require("obsidian");
@@ -252,12 +257,12 @@ function parseEventString(rawStr, defaultStartDate) {
   };
 }
 function getDailyNotesFolder(app) {
-  var _a2, _b2, _c;
+  var _a2, _b2, _c, _d;
   try {
-    const internalPlugins = app.internalPlugins;
-    const dailyNotes = (_a2 = internalPlugins == null ? void 0 : internalPlugins.getPluginById) == null ? void 0 : _a2.call(internalPlugins, "daily-notes");
+    const appWithPlugins = app;
+    const dailyNotes = (_b2 = (_a2 = appWithPlugins.internalPlugins) == null ? void 0 : _a2.getPluginById) == null ? void 0 : _b2.call(_a2, "daily-notes");
     if (dailyNotes == null ? void 0 : dailyNotes.enabled) {
-      const folder = (_c = (_b2 = dailyNotes == null ? void 0 : dailyNotes.instance) == null ? void 0 : _b2.options) == null ? void 0 : _c.folder;
+      const folder = (_d = (_c = dailyNotes.instance) == null ? void 0 : _c.options) == null ? void 0 : _d.folder;
       if (typeof folder === "string" && folder.trim()) {
         return folder.trim();
       }
@@ -1010,9 +1015,9 @@ var DaylioGraphView = class extends import_obsidian2.ItemView {
     await this.renderGraph();
   }
   onClose() {
-    clearTimeout(this.zoomDebounceTimer);
+    window.clearTimeout(this.zoomDebounceTimer);
     if (this.stickyRafId !== null) {
-      cancelAnimationFrame(this.stickyRafId);
+      window.cancelAnimationFrame(this.stickyRafId);
     }
     this.containerEl.empty();
     return Promise.resolve();
@@ -1038,8 +1043,7 @@ var DaylioGraphView = class extends import_obsidian2.ItemView {
     }
     container.empty();
     container.addClass("daylio-graph-root");
-    this.tooltipEl = container.createDiv({ cls: "daylio-tooltip" });
-    this.tooltipEl.style.display = "none";
+    this.tooltipEl = container.createDiv({ cls: "daylio-tooltip is-hidden" });
     const csvPath = this.plugin.settings.csvPath;
     if (!csvPath) {
       container.createEl("p", {
@@ -1160,10 +1164,10 @@ var DaylioGraphView = class extends import_obsidian2.ItemView {
     this.setupDragPan(this.scrollContainer);
     let rightButtonHeld = false;
     this.scrollContainer.addEventListener("mousedown", (evt) => {
-      if (evt.button === 2 /* Secondary */) rightButtonHeld = true;
+      if (evt.button === MouseButton.Secondary) rightButtonHeld = true;
     });
     this.registerDomEvent(document, "mouseup", (evt) => {
-      if (evt.button === 2 /* Secondary */) rightButtonHeld = false;
+      if (evt.button === MouseButton.Secondary) rightButtonHeld = false;
     });
     this.scrollContainer.addEventListener("contextmenu", (evt) => {
       if (rightButtonHeld) evt.preventDefault();
@@ -1181,7 +1185,7 @@ var DaylioGraphView = class extends import_obsidian2.ItemView {
       { passive: true }
     );
     this.scrollContainer.appendChild(this.buildSvg(this.plugin.settings.barWidth));
-    requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
       if (this.scrollContainer) {
         const maxScroll = this.scrollContainer.scrollWidth - this.scrollContainer.clientWidth;
         this.scrollContainer.scrollLeft = maxScroll * this.scrollRatio;
@@ -1222,8 +1226,8 @@ var DaylioGraphView = class extends import_obsidian2.ItemView {
           viewportX,
           oldStride: oldBW + barGapFor(oldBW)
         });
-        clearTimeout(this.zoomDebounceTimer);
-        this.zoomDebounceTimer = setTimeout(() => {
+        window.clearTimeout(this.zoomDebounceTimer);
+        this.zoomDebounceTimer = window.setTimeout(() => {
           void this.plugin.saveSettings();
         }, SAVE_DEBOUNCE_MS);
       }
@@ -1251,7 +1255,7 @@ var DaylioGraphView = class extends import_obsidian2.ItemView {
     let startScrollLeft = 0;
     let totalDragPx = 0;
     this.registerDomEvent(scrollEl, "mousedown", (evt) => {
-      if (evt.button !== 0 /* Main */) return;
+      if (evt.button !== MouseButton.Main) return;
       isDragging = true;
       totalDragPx = 0;
       startX = evt.clientX;
@@ -1301,7 +1305,7 @@ var DaylioGraphView = class extends import_obsidian2.ItemView {
   /** Schedule an update of sticky range labels via RAF. */
   scheduleUpdateStickyRangeLabels() {
     if (this.stickyRafId !== null) return;
-    this.stickyRafId = requestAnimationFrame(() => {
+    this.stickyRafId = window.requestAnimationFrame(() => {
       this.stickyRafId = null;
       this.updateStickyRangeLabels();
     });
@@ -1372,7 +1376,7 @@ var DaylioGraphView = class extends import_obsidian2.ItemView {
       const emptyEl = this.tooltipEl.createDiv({ cls: "daylio-tooltip-empty" });
       emptyEl.textContent = "No mood entries in this range";
     }
-    this.tooltipEl.style.display = "block";
+    this.tooltipEl.removeClass("is-hidden");
     this.positionTooltip(event);
   }
   /** Position the floating tooltip relative to the cursor inside the root container. */
@@ -1396,7 +1400,7 @@ var DaylioGraphView = class extends import_obsidian2.ItemView {
   /** Hide the floating tooltip. */
   hideTooltip() {
     if (this.tooltipEl) {
-      this.tooltipEl.style.display = "none";
+      this.tooltipEl.addClass("is-hidden");
     }
   }
   /**
@@ -1459,9 +1463,9 @@ var DaylioGraphView = class extends import_obsidian2.ItemView {
     }
     this.scrollContainer.appendChild(svg);
     if (this.scrollRafId !== null) {
-      cancelAnimationFrame(this.scrollRafId);
+      window.cancelAnimationFrame(this.scrollRafId);
     }
-    this.scrollRafId = requestAnimationFrame(() => {
+    this.scrollRafId = window.requestAnimationFrame(() => {
       this.scrollRafId = null;
       if (!this.scrollContainer) return;
       if (this.intendedScrollLeft !== null) {

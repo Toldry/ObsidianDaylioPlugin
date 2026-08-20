@@ -450,6 +450,10 @@
 	transition: opacity 0.1s ease-out;
 }
 
+.daylio-tooltip.is-hidden {
+	display: none;
+}
+
 .daylio-tooltip-title {
 	font-size: 12px;
 	font-weight: 600;

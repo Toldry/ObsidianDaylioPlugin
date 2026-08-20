@@ -39,7 +39,7 @@ export class DaylioGraphView extends ItemView {
 	private tooltipEl: HTMLElement | null = null;
 	private scrollRatio = 1;
 	private zoomSlider: HTMLInputElement | null = null;
-	private zoomDebounceTimer: ReturnType<typeof setTimeout> | undefined;
+	private zoomDebounceTimer: number | undefined;
 	private cachedDays: DayData[] = [];
 	private cachedVaultEvents: VaultEvent[] = [];
 	/** Pending requestAnimationFrame id for scroll-position restore after a
@@ -86,9 +86,9 @@ export class DaylioGraphView extends ItemView {
 	}
 
 	onClose(): Promise<void> {
-		clearTimeout(this.zoomDebounceTimer);
+		window.clearTimeout(this.zoomDebounceTimer);
 		if (this.stickyRafId !== null) {
-			cancelAnimationFrame(this.stickyRafId);
+			window.cancelAnimationFrame(this.stickyRafId);
 		}
 		this.containerEl.empty();
 		return Promise.resolve();
@@ -127,8 +127,7 @@ export class DaylioGraphView extends ItemView {
 		container.addClass("daylio-graph-root");
 
 		// ── Floating Rich Tooltip ───────────────────────────────
-		this.tooltipEl = container.createDiv({ cls: "daylio-tooltip" });
-		this.tooltipEl.style.display = "none";
+		this.tooltipEl = container.createDiv({ cls: "daylio-tooltip is-hidden" });
 
 		// ── Load CSV ────────────────────────────────────────────
 		const csvPath = this.plugin.settings.csvPath;
@@ -323,7 +322,7 @@ export class DaylioGraphView extends ItemView {
 
 		this.scrollContainer.appendChild(this.buildSvg(this.plugin.settings.barWidth));
 
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			if (this.scrollContainer) {
 				const maxScroll =
 					this.scrollContainer.scrollWidth -
@@ -379,8 +378,8 @@ export class DaylioGraphView extends ItemView {
 					viewportX,
 					oldStride: oldBW + barGapFor(oldBW),
 				});
-				clearTimeout(this.zoomDebounceTimer);
-				this.zoomDebounceTimer = setTimeout(() => {
+				window.clearTimeout(this.zoomDebounceTimer);
+				this.zoomDebounceTimer = window.setTimeout(() => {
 					void this.plugin.saveSettings();
 				}, SAVE_DEBOUNCE_MS);
 			}
@@ -472,7 +471,7 @@ export class DaylioGraphView extends ItemView {
 	/** Schedule an update of sticky range labels via RAF. */
 	private scheduleUpdateStickyRangeLabels(): void {
 		if (this.stickyRafId !== null) return;
-		this.stickyRafId = requestAnimationFrame(() => {
+		this.stickyRafId = window.requestAnimationFrame(() => {
 			this.stickyRafId = null;
 			this.updateStickyRangeLabels();
 		});
@@ -558,7 +557,7 @@ export class DaylioGraphView extends ItemView {
 		}
 
 
-		this.tooltipEl.style.display = "block";
+		this.tooltipEl.removeClass("is-hidden");
 		this.positionTooltip(event);
 	}
 
@@ -588,7 +587,7 @@ export class DaylioGraphView extends ItemView {
 	/** Hide the floating tooltip. */
 	private hideTooltip(): void {
 		if (this.tooltipEl) {
-			this.tooltipEl.style.display = "none";
+			this.tooltipEl.addClass("is-hidden");
 		}
 	}
 
@@ -668,9 +667,9 @@ export class DaylioGraphView extends ItemView {
 		this.scrollContainer.appendChild(svg);
 
 		if (this.scrollRafId !== null) {
-			cancelAnimationFrame(this.scrollRafId);
+			window.cancelAnimationFrame(this.scrollRafId);
 		}
-		this.scrollRafId = requestAnimationFrame(() => {
+		this.scrollRafId = window.requestAnimationFrame(() => {
 			this.scrollRafId = null;
 			if (!this.scrollContainer) return;
 			if (this.intendedScrollLeft !== null) {

@@ -1,8 +1,12 @@
 import tseslint from "typescript-eslint";
+import obsidianmd from "eslint-plugin-obsidianmd";
 
 export default tseslint.config(
 	// ── Base: TypeScript recommended rules ──────────────────────
 	...tseslint.configs.recommended,
+
+	// ── Obsidian plugin rules ───────────────────────────────────
+	...obsidianmd.configs.recommended,
 
 	// ── Source files ────────────────────────────────────────────
 	{

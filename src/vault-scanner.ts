@@ -140,11 +140,26 @@ export function parseFrontmatterDate(value: unknown): string | undefined {
  */
 function getDailyNotesFolder(app: App): string | undefined {
 	try {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const internalPlugins = (app as any).internalPlugins;
-		const dailyNotes = internalPlugins?.getPluginById?.("daily-notes");
+		interface DailyNotesPluginInstance {
+			options?: {
+				folder?: string;
+			};
+		}
+		interface DailyNotesPlugin {
+			enabled?: boolean;
+			instance?: DailyNotesPluginInstance;
+		}
+		interface InternalPlugins {
+			getPluginById?(id: string): DailyNotesPlugin | undefined;
+		}
+		interface AppWithInternalPlugins {
+			internalPlugins?: InternalPlugins;
+		}
+
+		const appWithPlugins = app as unknown as AppWithInternalPlugins;
+		const dailyNotes = appWithPlugins.internalPlugins?.getPluginById?.("daily-notes");
 		if (dailyNotes?.enabled) {
-			const folder = dailyNotes?.instance?.options?.folder;
+			const folder = dailyNotes.instance?.options?.folder;
 			if (typeof folder === "string" && folder.trim()) {
 				return folder.trim();
 			}

@@ -49,7 +49,7 @@ export default class DaylioGraphPlugin extends Plugin {
 	}
 
 	async loadSettings(): Promise<void> {
-		const loaded = await this.loadData();
+		const loaded = (await this.loadData()) as unknown;
 		this.settings = Object.assign(
 			{},
 			DEFAULT_SETTINGS,

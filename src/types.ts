@@ -153,9 +153,10 @@ export const MOOD_TO_LANE: Readonly<Record<MoodLevel, number>> = {
 /**
  * Standard `MouseEvent.button` numeric codes.
  */
-export const enum MouseButton {
-	Main = 0,
-	Auxiliary = 1,
-	Secondary = 2,
-}
+export const MouseButton = {
+	Main: 0,
+	Auxiliary: 1,
+	Secondary: 2,
+} as const;
+
 
