@@ -135,16 +135,6 @@ export const BAR_WIDTH_YEAR_ONLY_THRESHOLD = 0.5;
  *  `[data-type="daylio-mood-graph-view"]` in styles.css. */
 export const VIEW_TYPE_DAYLIO = "daylio-mood-graph-view";
 
-/**
- * Gap between bar columns, in pixels.  Shrinks at extreme zoom-out so
- * the gap doesn't dominate over the bars themselves.
- *
- * @param barWidth - Current bar width in pixels.
- * @returns Gap size: 2px at normal zoom, 1px at medium zoom, 0px at extreme zoom-out.
- */
-export function barGapFor(barWidth: number): number {
-	return barWidth >= 2 ? 2 : barWidth >= 1 ? 1 : 0;
-}
 
 /**
  * Maps each mood level to its vertical lane index in the graph.
@@ -157,3 +147,15 @@ export const MOOD_TO_LANE: Readonly<Record<MoodLevel, number>> = {
 	bad: 3,
 	awful: 4,
 } as const;
+
+// ─── DOM event constants ────────────────────────────────────────────
+
+/**
+ * Standard `MouseEvent.button` numeric codes.
+ */
+export const enum MouseButton {
+	Main = 0,
+	Auxiliary = 1,
+	Secondary = 2,
+}
+

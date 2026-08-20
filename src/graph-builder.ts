@@ -1,13 +1,18 @@
 import {
 	MOOD_LEVELS,
 	MOOD_TO_LANE,
-	barGapFor,
 	BAR_WIDTH_MAX,
 	BAR_WIDTH_YEAR_ONLY_THRESHOLD,
 	type MoodLevel,
 	type DayData,
 	type VaultEvent,
 } from "./types";
+import {
+	barGapFor,
+	computeStickyLabelPosition,
+	type StickyLabelParams,
+	type StickyLabelResult,
+} from "./utils";
 
 // ─── Layout constants ───────────────────────────────────────────────
 
@@ -57,55 +62,6 @@ const HOVER_NAME_LABEL_OFFSET = 4;
 export const LEFT_PAD = 20;
 /** Right padding (px) added after the last bar column. */
 export const RIGHT_PAD = 20;
-
-
-
-export interface StickyLabelParams {
-	x1: number;
-	x2: number;
-	cardX: number;
-	cardW: number;
-	pillW: number;
-	isCallout: boolean;
-	visibleLeft: number;
-	padding?: number;
-}
-
-export interface StickyLabelResult {
-	x: number;
-	width: number;
-	isSticky: boolean;
-}
-
-/**
- * Computes sticky label position and width for range events when their start
- * date is scrolled out of frame to the left.
- */
-export function computeStickyLabelPosition(
-	params: StickyLabelParams,
-): StickyLabelResult {
-	const { x1, x2, cardX, cardW, pillW, isCallout, visibleLeft, padding = 8 } = params;
-
-	if (visibleLeft > x1 && visibleLeft < x2 - padding) {
-		const minWidth = isCallout ? cardW : Math.min(cardW, 40);
-		const maxStickyX = x2 - minWidth;
-		const stickyX = Math.max(x1, Math.min(visibleLeft + padding, maxStickyX));
-		const width = isCallout ? cardW : Math.max(20, x2 - stickyX);
-
-		return {
-			x: Math.round(stickyX),
-			width: Math.round(width),
-			isSticky: true,
-		};
-	}
-
-	return {
-		x: Math.round(cardX),
-		width: Math.round(isCallout ? cardW : pillW),
-		isSticky: false,
-	};
-}
-
 // ─── SVG helper ─────────────────────────────────────────────────────
 
 const SVG_NS = "http://www.w3.org/2000/svg";

@@ -4,9 +4,9 @@ import {
 	packEventsIntoTracks,
 	packRangeEventsIntoTracks,
 	computeRangeMoodProportions,
-	computeStickyLabelPosition,
 	type EntrySpan,
 } from "../../src/graph-builder";
+import { computeStickyLabelPosition } from "../../src/utils";
 import type { DayData, VaultEvent } from "../../src/types";
 
 // ─── Helpers ────────────────────────────────────────────────────────

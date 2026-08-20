@@ -61,6 +61,8 @@ daylio-obsidian-plugin/
 ├── src/
 │   ├── main.ts              ← Plugin entry point + re-exports for tests
 │   ├── types.ts             ← Types, interfaces, constants, defaults, icon
+│   ├── utils.ts             ← Pure utility and geometry helpers (barGapFor)
+│   ├── scroll-math.ts       ← Pure scroll-position arithmetic for anchored zoom
 │   ├── csv-parser.ts        ← parseDaylioCsv, parseCsvLine, isMoodLevel, groupByDay
 │   ├── vault-scanner.ts     ← scanVaultEvents, DATE_PREFIX_REGEX
 │   ├── graph-builder.ts     ← buildGraphSvg, computeEntrySpans (pure SVG builder)
@@ -100,10 +102,12 @@ daylio-obsidian-plugin/
 The source is split into focused modules under `src/`:
 
 - **`types.ts`** — `MoodLevel`, `MoodEntry`, `DayData`, `VaultEvent`, settings
-  interfaces, default colours, `barGapFor()`, `MOOD_TO_LANE`, zoom constants
+  interfaces, default colours, `MOOD_TO_LANE`, zoom constants
   (`BAR_WIDTH_MIN/MAX/STEP` etc.), the custom ribbon icon registration, and the
   `HasDaylioSettings` interface used to break circular dependencies between the
   graph view and the plugin class.
+- **`utils.ts`** — Pure utility, math, and geometry helper functions (`barGapFor`,
+  `formatISODate`, `computeStickyLabelPosition`).
 - **`csv-parser.ts`** — `parseDaylioCsv`, `parseCsvLine`, `isMoodLevel`,
   `groupByDay`. Pure functions, no Obsidian imports.
 - **`vault-scanner.ts`** — `scanVaultEvents`, `DATE_PREFIX_REGEX`. Depends

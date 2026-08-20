@@ -11,7 +11,7 @@
  */
 
 import { LEFT_PAD, RIGHT_PAD } from "./graph-builder";
-import { barGapFor } from "./types";
+import { barGapFor } from "./utils";
 
 // ─── Types ─────────────────────────────────────────────────────────
 

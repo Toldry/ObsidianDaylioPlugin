@@ -2,23 +2,23 @@ import { App, ItemView, Notice, TFile, WorkspaceLeaf } from "obsidian";
 import {
 	MOOD_LEVELS,
 	VIEW_TYPE_DAYLIO,
-	barGapFor,
 	BAR_WIDTH_MIN,
 	BAR_WIDTH_MAX,
 	BAR_WIDTH_STEP,
 	BAR_WIDTH_FINE_THRESHOLD,
 	BAR_WIDTH_FINE_STEP,
 	BAR_WIDTH_COARSE_STEP,
+	MouseButton,
 	type DayData,
 	type VaultEvent,
 	type HasDaylioSettings,
 	DAYLIO_ICON_ID,
 } from "./types";
+import { barGapFor, computeStickyLabelPosition } from "./utils";
 import { parseDaylioCsv, groupByDay } from "./csv-parser";
 import { scanVaultEvents } from "./vault-scanner";
 import {
 	buildGraphSvg,
-	computeStickyLabelPosition,
 	type RangeTooltipData,
 } from "./graph-builder";
 import {
@@ -178,6 +178,13 @@ export class DaylioGraphView extends ItemView {
 			return;
 		}
 
+		// ── Collect vault events + cache parsed data ────────────
+		this.cachedVaultEvents = scanVaultEvents(
+			this.app,
+			this.plugin.settings.eventScanDir || undefined,
+		);
+		this.cachedDays = groupByDay(allEntries);
+
 		// ── Zoom toolbar ────────────────────────────────────────
 		const toolbar = container.createDiv({ cls: "daylio-graph-toolbar" });
 		toolbar.createSpan({ text: "Zoom", cls: "daylio-zoom-label" });
@@ -262,13 +269,6 @@ export class DaylioGraphView extends ItemView {
 			cls: "daylio-version-label",
 		});
 
-		// ── Collect vault events + cache parsed data ────────────
-		this.cachedVaultEvents = scanVaultEvents(
-			this.app,
-			this.plugin.settings.eventScanDir || undefined,
-		);
-		this.cachedDays = groupByDay(allEntries);
-
 		// ── Mood legend ─────────────────────────────────────────
 		const legend = container.createDiv({ cls: "daylio-graph-legend" });
 		for (const mood of MOOD_LEVELS) {
@@ -291,14 +291,14 @@ export class DaylioGraphView extends ItemView {
 		let rightButtonHeld = false;
 
 		this.scrollContainer.addEventListener("mousedown", (evt) => {
-			if (evt.button === 2) rightButtonHeld = true;
+			if (evt.button === MouseButton.Secondary) rightButtonHeld = true;
 		});
 		// Release on mouseup anywhere — the pointer may have drifted off
 		// the scroll container while held.  Use registerDomEvent so the
 		// listener is removed when the view closes (not a bare document
 		// listener that accumulates across renderGraph() calls).
 		this.registerDomEvent(document, "mouseup", (evt: MouseEvent) => {
-			if (evt.button === 2) rightButtonHeld = false;
+			if (evt.button === MouseButton.Secondary) rightButtonHeld = false;
 		});
 		// Suppress the context menu when right-button was used for zooming.
 		// Only fires when the button is released without having scrolled, so
@@ -309,52 +309,7 @@ export class DaylioGraphView extends ItemView {
 
 		this.scrollContainer.addEventListener(
 			"wheel",
-			(evt) => {
-				// Stop all wheel events here: prevents Obsidian's own
-				// Ctrl+wheel handler (which may be capturing or document-
-				// level) from also firing and producing a double-tick.
-				evt.preventDefault();
-				evt.stopPropagation();
-				evt.stopImmediatePropagation();
-				if ((evt.ctrlKey || rightButtonHeld) && evt.deltaY !== 0) {
-					const step =
-						this.plugin.settings.barWidth <= BAR_WIDTH_FINE_THRESHOLD
-							? BAR_WIDTH_FINE_STEP
-							: BAR_WIDTH_COARSE_STEP;
-					const delta = evt.deltaY < 0 ? step : -step;
-					const newWidth = Math.max(
-						BAR_WIDTH_MIN,
-						Math.min(
-							BAR_WIDTH_MAX,
-							this.plugin.settings.barWidth + delta,
-						),
-					);
-					if (newWidth !== this.plugin.settings.barWidth) {
-						const rect =
-							this.scrollContainer!.getBoundingClientRect();
-						const viewportX = evt.clientX - rect.left;
-						const currentScrollLeft =
-							this.intendedScrollLeft ??
-							this.scrollContainer!.scrollLeft;
-						const svgX =
-							currentScrollLeft + viewportX -
-							this.intendedMarginLeft;
-						const oldBW = this.plugin.settings.barWidth;
-						this.quickRedraw(newWidth, {
-							svgX,
-							viewportX,
-							oldStride: oldBW + barGapFor(oldBW),
-						});
-						clearTimeout(this.zoomDebounceTimer);
-						this.zoomDebounceTimer = setTimeout(() => {
-							void this.plugin.saveSettings();
-						}, SAVE_DEBOUNCE_MS);
-					}
-				} else {
-					this.scrollContainer!.scrollLeft +=
-						evt.deltaX + evt.deltaY;
-				}
-			},
+			(evt) => this.handleWheel(evt, rightButtonHeld),
 			{ passive: false },
 		);
 
@@ -378,7 +333,61 @@ export class DaylioGraphView extends ItemView {
 				this.updateStickyRangeLabels();
 			}
 		});
+	}
 
+	/**
+	 * Handle wheel events on the scroll container.
+	 *
+	 * When Ctrl or right-mouse-button is held, vertical wheel scrolling
+	 * zooms the graph anchored at the mouse cursor. Otherwise, wheel
+	 * scrolling scrolls horizontally.
+	 */
+	private handleWheel(evt: WheelEvent, rightButtonHeld: boolean): void {
+		// Stop all wheel events here: prevents Obsidian's own
+		// Ctrl+wheel handler (which may be capturing or document-
+		// level) from also firing and producing a double-tick.
+		evt.preventDefault();
+		evt.stopPropagation();
+		evt.stopImmediatePropagation();
+
+		if ((evt.ctrlKey || rightButtonHeld) && evt.deltaY !== 0) {
+			const step =
+				this.plugin.settings.barWidth <= BAR_WIDTH_FINE_THRESHOLD
+					? BAR_WIDTH_FINE_STEP
+					: BAR_WIDTH_COARSE_STEP;
+			const delta = evt.deltaY < 0 ? step : -step;
+			const newWidth = Math.max(
+				BAR_WIDTH_MIN,
+				Math.min(
+					BAR_WIDTH_MAX,
+					this.plugin.settings.barWidth + delta,
+				),
+			);
+			if (newWidth !== this.plugin.settings.barWidth) {
+				const rect =
+					this.scrollContainer!.getBoundingClientRect();
+				const viewportX = evt.clientX - rect.left;
+				const currentScrollLeft =
+					this.intendedScrollLeft ??
+					this.scrollContainer!.scrollLeft;
+				const svgX =
+					currentScrollLeft + viewportX -
+					this.intendedMarginLeft;
+				const oldBW = this.plugin.settings.barWidth;
+				this.quickRedraw(newWidth, {
+					svgX,
+					viewportX,
+					oldStride: oldBW + barGapFor(oldBW),
+				});
+				clearTimeout(this.zoomDebounceTimer);
+				this.zoomDebounceTimer = setTimeout(() => {
+					void this.plugin.saveSettings();
+				}, SAVE_DEBOUNCE_MS);
+			}
+		} else {
+			this.scrollContainer!.scrollLeft +=
+				evt.deltaX + evt.deltaY;
+		}
 	}
 
 	/**
@@ -402,7 +411,7 @@ export class DaylioGraphView extends ItemView {
 		let totalDragPx = 0;
 
 		this.registerDomEvent(scrollEl, "mousedown", (evt: MouseEvent) => {
-			if (evt.button !== 0) return;
+			if (evt.button !== MouseButton.Main) return;
 			isDragging = true;
 			totalDragPx = 0;
 			startX = evt.clientX;
@@ -613,10 +622,6 @@ export class DaylioGraphView extends ItemView {
 		},
 	): void {
 		if (!this.scrollContainer || this.cachedDays.length === 0) return;
-		// log.debug(
-		// 	"quickRedraw:", this.plugin.settings.barWidth, "→", newWidth,
-		// 	anchor ? "(cursor-anchored)" : "(absolute-position scroll)",
-		// );
 		this.plugin.settings.barWidth = newWidth;
 		if (this.zoomSlider) {
 			this.zoomSlider.value = String(newWidth);

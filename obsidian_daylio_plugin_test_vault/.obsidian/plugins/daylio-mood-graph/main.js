@@ -63,9 +63,6 @@ var BAR_WIDTH_FINE_STEP = 0.25;
 var BAR_WIDTH_COARSE_STEP = 0.5;
 var BAR_WIDTH_YEAR_ONLY_THRESHOLD = 0.5;
 var VIEW_TYPE_DAYLIO = "daylio-mood-graph-view";
-function barGapFor(barWidth) {
-  return barWidth >= 2 ? 2 : barWidth >= 1 ? 1 : 0;
-}
 var MOOD_TO_LANE = {
   rad: 0,
   good: 1,
@@ -76,6 +73,36 @@ var MOOD_TO_LANE = {
 
 // src/graph-view.ts
 var import_obsidian2 = require("obsidian");
+
+// src/utils.ts
+function barGapFor(barWidth) {
+  return barWidth >= 2 ? 2 : barWidth >= 1 ? 1 : 0;
+}
+function formatISODate(date) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+function computeStickyLabelPosition(params) {
+  const { x1, x2, cardX, cardW, pillW, isCallout, visibleLeft, padding = 8 } = params;
+  if (visibleLeft > x1 && visibleLeft < x2 - padding) {
+    const minWidth = isCallout ? cardW : Math.min(cardW, 40);
+    const maxStickyX = x2 - minWidth;
+    const stickyX = Math.max(x1, Math.min(visibleLeft + padding, maxStickyX));
+    const width = isCallout ? cardW : Math.max(20, x2 - stickyX);
+    return {
+      x: Math.round(stickyX),
+      width: Math.round(width),
+      isSticky: true
+    };
+  }
+  return {
+    x: Math.round(cardX),
+    width: Math.round(isCallout ? cardW : pillW),
+    isSticky: false
+  };
+}
 
 // src/csv-parser.ts
 function parseDaylioCsv(raw) {
@@ -224,12 +251,6 @@ function parseEventString(rawStr, defaultStartDate) {
     startDate: defaultStartDate
   };
 }
-function formatISODate(date) {
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
 function getDailyNotesFolder(app) {
   var _a2, _b2, _c;
   try {
@@ -320,25 +341,6 @@ var HOVER_DATE_LABEL_OFFSET = 14;
 var HOVER_NAME_LABEL_OFFSET = 4;
 var LEFT_PAD = 20;
 var RIGHT_PAD = 20;
-function computeStickyLabelPosition(params) {
-  const { x1, x2, cardX, cardW, pillW, isCallout, visibleLeft, padding = 8 } = params;
-  if (visibleLeft > x1 && visibleLeft < x2 - padding) {
-    const minWidth = isCallout ? cardW : Math.min(cardW, 40);
-    const maxStickyX = x2 - minWidth;
-    const stickyX = Math.max(x1, Math.min(visibleLeft + padding, maxStickyX));
-    const width = isCallout ? cardW : Math.max(20, x2 - stickyX);
-    return {
-      x: Math.round(stickyX),
-      width: Math.round(width),
-      isSticky: true
-    };
-  }
-  return {
-    x: Math.round(cardX),
-    width: Math.round(isCallout ? cardW : pillW),
-    isSticky: false
-  };
-}
 var SVG_NS = "http://www.w3.org/2000/svg";
 function svgEl(tag, attrs) {
   const el = document.createElementNS(SVG_NS, tag);
@@ -1076,6 +1078,11 @@ var DaylioGraphView = class extends import_obsidian2.ItemView {
       });
       return;
     }
+    this.cachedVaultEvents = scanVaultEvents(
+      this.app,
+      this.plugin.settings.eventScanDir || void 0
+    );
+    this.cachedDays = groupByDay(allEntries);
     const toolbar = container.createDiv({ cls: "daylio-graph-toolbar" });
     toolbar.createSpan({ text: "Zoom", cls: "daylio-zoom-label" });
     const stepZoom = (delta) => {
@@ -1140,11 +1147,6 @@ var DaylioGraphView = class extends import_obsidian2.ItemView {
       text: `v${this.plugin.manifest.version}`,
       cls: "daylio-version-label"
     });
-    this.cachedVaultEvents = scanVaultEvents(
-      this.app,
-      this.plugin.settings.eventScanDir || void 0
-    );
-    this.cachedDays = groupByDay(allEntries);
     const legend = container.createDiv({ cls: "daylio-graph-legend" });
     for (const mood of MOOD_LEVELS) {
       const item = legend.createDiv({ cls: "daylio-legend-item" });
@@ -1158,51 +1160,17 @@ var DaylioGraphView = class extends import_obsidian2.ItemView {
     this.setupDragPan(this.scrollContainer);
     let rightButtonHeld = false;
     this.scrollContainer.addEventListener("mousedown", (evt) => {
-      if (evt.button === 2) rightButtonHeld = true;
+      if (evt.button === 2 /* Secondary */) rightButtonHeld = true;
     });
     this.registerDomEvent(document, "mouseup", (evt) => {
-      if (evt.button === 2) rightButtonHeld = false;
+      if (evt.button === 2 /* Secondary */) rightButtonHeld = false;
     });
     this.scrollContainer.addEventListener("contextmenu", (evt) => {
       if (rightButtonHeld) evt.preventDefault();
     });
     this.scrollContainer.addEventListener(
       "wheel",
-      (evt) => {
-        var _a2;
-        evt.preventDefault();
-        evt.stopPropagation();
-        evt.stopImmediatePropagation();
-        if ((evt.ctrlKey || rightButtonHeld) && evt.deltaY !== 0) {
-          const step = this.plugin.settings.barWidth <= BAR_WIDTH_FINE_THRESHOLD ? BAR_WIDTH_FINE_STEP : BAR_WIDTH_COARSE_STEP;
-          const delta = evt.deltaY < 0 ? step : -step;
-          const newWidth = Math.max(
-            BAR_WIDTH_MIN,
-            Math.min(
-              BAR_WIDTH_MAX,
-              this.plugin.settings.barWidth + delta
-            )
-          );
-          if (newWidth !== this.plugin.settings.barWidth) {
-            const rect = this.scrollContainer.getBoundingClientRect();
-            const viewportX = evt.clientX - rect.left;
-            const currentScrollLeft = (_a2 = this.intendedScrollLeft) != null ? _a2 : this.scrollContainer.scrollLeft;
-            const svgX = currentScrollLeft + viewportX - this.intendedMarginLeft;
-            const oldBW = this.plugin.settings.barWidth;
-            this.quickRedraw(newWidth, {
-              svgX,
-              viewportX,
-              oldStride: oldBW + barGapFor(oldBW)
-            });
-            clearTimeout(this.zoomDebounceTimer);
-            this.zoomDebounceTimer = setTimeout(() => {
-              void this.plugin.saveSettings();
-            }, SAVE_DEBOUNCE_MS);
-          }
-        } else {
-          this.scrollContainer.scrollLeft += evt.deltaX + evt.deltaY;
-        }
-      },
+      (evt) => this.handleWheel(evt, rightButtonHeld),
       { passive: false }
     );
     this.scrollContainer.addEventListener(
@@ -1220,6 +1188,48 @@ var DaylioGraphView = class extends import_obsidian2.ItemView {
         this.updateStickyRangeLabels();
       }
     });
+  }
+  /**
+   * Handle wheel events on the scroll container.
+   *
+   * When Ctrl or right-mouse-button is held, vertical wheel scrolling
+   * zooms the graph anchored at the mouse cursor. Otherwise, wheel
+   * scrolling scrolls horizontally.
+   */
+  handleWheel(evt, rightButtonHeld) {
+    var _a2;
+    evt.preventDefault();
+    evt.stopPropagation();
+    evt.stopImmediatePropagation();
+    if ((evt.ctrlKey || rightButtonHeld) && evt.deltaY !== 0) {
+      const step = this.plugin.settings.barWidth <= BAR_WIDTH_FINE_THRESHOLD ? BAR_WIDTH_FINE_STEP : BAR_WIDTH_COARSE_STEP;
+      const delta = evt.deltaY < 0 ? step : -step;
+      const newWidth = Math.max(
+        BAR_WIDTH_MIN,
+        Math.min(
+          BAR_WIDTH_MAX,
+          this.plugin.settings.barWidth + delta
+        )
+      );
+      if (newWidth !== this.plugin.settings.barWidth) {
+        const rect = this.scrollContainer.getBoundingClientRect();
+        const viewportX = evt.clientX - rect.left;
+        const currentScrollLeft = (_a2 = this.intendedScrollLeft) != null ? _a2 : this.scrollContainer.scrollLeft;
+        const svgX = currentScrollLeft + viewportX - this.intendedMarginLeft;
+        const oldBW = this.plugin.settings.barWidth;
+        this.quickRedraw(newWidth, {
+          svgX,
+          viewportX,
+          oldStride: oldBW + barGapFor(oldBW)
+        });
+        clearTimeout(this.zoomDebounceTimer);
+        this.zoomDebounceTimer = setTimeout(() => {
+          void this.plugin.saveSettings();
+        }, SAVE_DEBOUNCE_MS);
+      }
+    } else {
+      this.scrollContainer.scrollLeft += evt.deltaX + evt.deltaY;
+    }
   }
   /**
    * Attach drag-to-pan behaviour to the horizontal scroll container.
@@ -1241,7 +1251,7 @@ var DaylioGraphView = class extends import_obsidian2.ItemView {
     let startScrollLeft = 0;
     let totalDragPx = 0;
     this.registerDomEvent(scrollEl, "mousedown", (evt) => {
-      if (evt.button !== 0) return;
+      if (evt.button !== 0 /* Main */) return;
       isDragging = true;
       totalDragPx = 0;
       startX = evt.clientX;
