@@ -337,7 +337,7 @@ The plugin uses an automated GitHub Actions release workflow triggered on versio
 1. Run `npm version patch` (or `minor` / `major`):
    - Automatically runs `npm ls`, `npm run lint`, and `npm test` via the `preversion` hook to ensure clean dependencies, style, and tests.
    - Bumps version in `package.json` and syncs `manifest.json`.
-   - Creates a commit and an annotated git tag (e.g. `v1.1.7`).
+   - Creates a commit and an annotated git tag without `v` prefix (e.g. `1.1.7`, configured via `.npmrc`).
    - Pushes commit and tag upstream via `postversion` hook (`git push && git push --tags`).
 2. GitHub Actions automatically:
    - Builds the production bundle (`build/main.js`, `build/main.js.map`, `manifest.json`, `styles.css`).
