@@ -334,7 +334,7 @@ The plugin uses an automated GitHub Actions release workflow triggered on versio
 ### Standard Release Process
 
 1. Run `npm version patch` (or `minor` / `major`):
-   - Automatically runs `npm run lint` and `npm test` via the `preversion` hook.
+   - Automatically runs `npm ls`, `npm run lint`, and `npm test` via the `preversion` hook to ensure clean dependencies, style, and tests.
    - Bumps version in `package.json` and syncs `manifest.json`.
    - Creates a commit and an annotated git tag (e.g. `v1.1.7`).
    - Pushes commit and tag upstream via `postversion` hook (`git push && git push --tags`).
