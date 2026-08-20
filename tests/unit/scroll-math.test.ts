@@ -4,7 +4,7 @@ import {
 	computeIntrinsicWidth,
 	type AnchorParams,
 	type ScrollResult,
-} from "../../src/main";
+} from "../../src/scroll-math";
 
 /* LEFT_PAD is re-exported indirectly through computeAnchoredScroll.
  * We duplicate the constant here so the tests can verify the invariant

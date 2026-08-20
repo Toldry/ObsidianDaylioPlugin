@@ -24,29 +24,7 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // src/main.ts
 var main_exports = {};
 __export(main_exports, {
-  DATE_PREFIX_REGEX: () => DATE_PREFIX_REGEX,
-  MOOD_LEVELS: () => MOOD_LEVELS,
-  collectStringItems: () => collectStringItems,
-  computeAnchoredScroll: () => computeAnchoredScroll,
-  computeEntrySpans: () => computeEntrySpans,
-  computeIntrinsicWidth: () => computeIntrinsicWidth,
-  computeRangeMoodProportions: () => computeRangeMoodProportions,
-  computeStickyLabelPosition: () => computeStickyLabelPosition,
-  default: () => DaylioGraphPlugin,
-  groupByDay: () => groupByDay,
-  isMoodLevel: () => isMoodLevel,
-  log: () => log,
-  logDebug: () => logDebug,
-  logError: () => logError,
-  logInfo: () => logInfo,
-  logWarn: () => logWarn,
-  packEventsIntoTracks: () => packEventsIntoTracks,
-  packRangeEventsIntoTracks: () => packRangeEventsIntoTracks,
-  parseCsvLine: () => parseCsvLine,
-  parseDaylioCsv: () => parseDaylioCsv,
-  parseEventString: () => parseEventString,
-  parseFrontmatterDate: () => parseFrontmatterDate,
-  scanVaultEvents: () => scanVaultEvents
+  default: () => DaylioGraphPlugin
 });
 module.exports = __toCommonJS(main_exports);
 var import_obsidian4 = require("obsidian");
@@ -173,16 +151,7 @@ function groupByDay(entries) {
 }
 
 // src/log.ts
-var logDebug = (...args) => console.debug("[daylio]", ...args);
-var logInfo = (...args) => console.info("[daylio]", ...args);
 var logWarn = (...args) => console.warn("[daylio]", ...args);
-var logError = (...args) => console.error("[daylio]", ...args);
-var log = {
-  debug: logDebug,
-  info: logInfo,
-  warn: logWarn,
-  error: logError
-};
 
 // src/vault-scanner.ts
 var DATE_PREFIX_REGEX = /^(\d{4}-\d{2}-\d{2})/;
@@ -260,12 +229,6 @@ function formatISODate(date) {
   const mm = String(date.getMonth() + 1).padStart(2, "0");
   const dd = String(date.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
-}
-function parseFrontmatterDate(value) {
-  if (typeof value === "string" && ISO_DATE_REGEX.test(value.trim())) {
-    return value.trim();
-  }
-  return void 0;
 }
 function getDailyNotesFolder(app) {
   var _a2, _b2, _c;
@@ -569,9 +532,6 @@ function packEventsIntoTracks(vaultEvents, days, stride = 10, barWidth = 8, meas
   }
   return { spans, trackCount: trackIntervals.length };
 }
-var packRangeEventsIntoTracks = (vaultEvents, days) => {
-  return packEventsIntoTracks(vaultEvents, days, 10, 8);
-};
 function buildGraphSvg(barWidth, days, vaultEvents, ctx) {
   var _a2, _b2, _c, _d, _e, _f;
   const BAR_WIDTH = barWidth;

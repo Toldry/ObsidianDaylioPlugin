@@ -17,56 +17,6 @@ import {
 import { DaylioGraphView } from "./graph-view";
 import { DaylioSettingTab } from "./settings-tab";
 
-// Re-export pure functions and types so existing test imports keep working.
-export {
-	type MoodLevel,
-	type MoodEntry,
-	type DayData,
-	type VaultEvent,
-	MOOD_LEVELS,
-} from "./types";
-export {
-	parseDaylioCsv,
-	parseCsvLine,
-	isMoodLevel,
-	groupByDay,
-} from "./csv-parser";
-export {
-	scanVaultEvents,
-	parseEventString,
-	parseFrontmatterDate,
-	collectStringItems,
-	DATE_PREFIX_REGEX,
-} from "./vault-scanner";
-export {
-	computeEntrySpans,
-	packEventsIntoTracks,
-	packRangeEventsIntoTracks,
-	computeRangeMoodProportions,
-	computeStickyLabelPosition,
-	type EntrySpan,
-	type EventTrackSpan,
-	type RangeTrackSpan,
-	type MoodProportion,
-	type RangeMoodSummary,
-	type RangeTooltipData,
-	type StickyLabelParams,
-	type StickyLabelResult,
-} from "./graph-builder";
-export {
-	computeAnchoredScroll,
-	computeIntrinsicWidth,
-	type AnchorParams,
-	type ScrollResult,
-} from "./scroll-math";
-export {
-	log,
-	logDebug,
-	logInfo,
-	logWarn,
-	logError,
-} from "./log";
-
 export default class DaylioGraphPlugin extends Plugin {
 	settings: DaylioGraphSettings = DEFAULT_SETTINGS;
 

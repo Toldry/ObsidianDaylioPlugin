@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { App, TFile } from "obsidian";
-import { scanVaultEvents, parseEventString } from "../../src/main";
+import { scanVaultEvents, parseEventString } from "../../src/vault-scanner";
 
 // ─── Mock App factory ────────────────────────────────────────────────
 

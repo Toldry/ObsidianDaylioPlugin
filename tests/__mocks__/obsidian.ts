@@ -1,7 +1,7 @@
 /**
  * Minimal stub of the Obsidian module.
  *
- * Unit tests import from src/main.ts, which itself imports from "obsidian".
+ * Unit tests import from source modules (e.g. src/vault-scanner.ts), which import from "obsidian".
  * vitest.config.ts aliases "obsidian" → this file so the tests can run
  * without a real Obsidian runtime.
  *

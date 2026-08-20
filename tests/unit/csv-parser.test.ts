@@ -4,8 +4,8 @@ import {
 	parseDaylioCsv,
 	groupByDay,
 	isMoodLevel,
-	MOOD_LEVELS,
-} from "../../src/main";
+} from "../../src/csv-parser";
+import { MOOD_LEVELS } from "../../src/types";
 
 // ─── isMoodLevel ────────────────────────────────────────────────────
 

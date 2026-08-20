@@ -11,7 +11,11 @@
 import fs from "fs";
 import path from "path";
 
-import { parseEventString, parseFrontmatterDate, collectStringItems } from "../../src/main";
+import {
+	parseEventString,
+	parseFrontmatterDate,
+	collectStringItems,
+} from "../../src/vault-scanner";
 
 export interface VaultEventOnDisk {
 	date: string;

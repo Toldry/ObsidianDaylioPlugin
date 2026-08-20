@@ -130,9 +130,7 @@ The source is split into focused modules under `src/`:
 - **`settings-tab.ts`** — `DaylioSettingTab extends PluginSettingTab`.
 - **`log.ts`** — Debug logging helper; calls are compiled away in production.
 - **`main.ts`** — `DaylioGraphPlugin extends Plugin`. Slim entry point that
-  wires up the view, ribbon icon, command, and settings tab. Also re-exports
-  all pure functions and types so existing test imports (`from "../../src/main"`)
-  keep working.
+  wires up the view, ribbon icon, command, and settings tab.
 
 The graph is pure SVG built via `document.createElementNS`. Event labels
 use `<foreignObject>` so they can contain a clickable, text-wrapping `<div>`.
@@ -248,11 +246,11 @@ Tests are written with [Vitest](https://vitest.dev) and live in `tests/`.
 
 The plugin can't run a full Obsidian runtime in CI, so the test strategy is:
 
-1. **Unit tests** import exported pure functions via `src/main.ts` (which
-   re-exports from the individual modules). The `obsidian` package import is
-   intercepted by the alias in `vitest.config.ts` and redirected to
-   `tests/__mocks__/obsidian.ts` — a minimal stub that satisfies the
-   TypeScript compiler without needing a real Obsidian runtime.
+1. **Unit tests** import exported pure functions and types directly from
+   their respective source modules (e.g. `src/csv-parser.ts`, `src/vault-scanner.ts`).
+   The `obsidian` package import is intercepted by the alias in `vitest.config.ts`
+   and redirected to `tests/__mocks__/obsidian.ts` — a minimal stub that satisfies
+   the TypeScript compiler without needing a real Obsidian runtime.
 
 2. **Integration tests** read the actual files in `obsidian_daylio_plugin_test_vault/`
    (the real CSV and the real markdown notes) using Node.js `fs`. A helper
@@ -278,15 +276,14 @@ that layer.
 
 ### Testability convention
 
-All pure functions are exported from their respective modules and re-exported
-from `src/main.ts` so test files can import them via a single path. The
-Obsidian classes (`Plugin`, `ItemView`, etc.) are NOT exported — they're only
-needed by the Obsidian runtime, not by tests.
+All pure functions and types are exported directly from their respective source modules
+(`csv-parser.ts`, `graph-builder.ts`, `vault-scanner.ts`, `types.ts`, `scroll-math.ts`, etc.)
+so test files can import them directly. The Obsidian classes (`Plugin`, `ItemView`, etc.)
+are only needed by the Obsidian runtime, not by tests of pure logic.
 
-If you add a new pure function, export it from its module and add it to the
-re-exports in `src/main.ts`. If you add logic that depends on the Obsidian
-API, test it through the mock-App pattern in
-`tests/unit/vault-scanner.test.ts`.
+If you add a new pure function, export it from its module and import it directly in your
+test file. If you add logic that depends on the Obsidian API, test it through the
+mock-App pattern in `tests/unit/vault-scanner.test.ts`.
 
 ## CSS conventions
 

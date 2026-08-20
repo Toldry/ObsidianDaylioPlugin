@@ -11,8 +11,8 @@ export default defineConfig({
 	},
 	resolve: {
 		alias: {
-			// Redirect Obsidian's package to a minimal stub so unit tests
-			// can import from src/main.ts without a real Obsidian runtime.
+			// Redirect Obsidian's package to a minimal stub so tests
+			// can import source modules without a real Obsidian runtime.
 			obsidian: path.resolve(__dirname, "tests/__mocks__/obsidian.ts"),
 		},
 	},

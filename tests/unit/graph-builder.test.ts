@@ -6,8 +6,8 @@ import {
 	computeRangeMoodProportions,
 	computeStickyLabelPosition,
 	type EntrySpan,
-} from "../../src/main";
-import type { DayData, VaultEvent } from "../../src/main";
+} from "../../src/graph-builder";
+import type { DayData, VaultEvent } from "../../src/types";
 
 // ─── Helpers ────────────────────────────────────────────────────────
 

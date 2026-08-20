@@ -11,12 +11,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import fs from "fs";
 import path from "path";
-import {
-	parseDaylioCsv,
-	groupByDay,
-	type MoodEntry,
-	type DayData,
-} from "../../src/main";
+import { parseDaylioCsv, groupByDay } from "../../src/csv-parser";
+import type { MoodEntry, DayData } from "../../src/types";
 import {
 	readVaultEventsFromDisk,
 	parseFrontmatter,
