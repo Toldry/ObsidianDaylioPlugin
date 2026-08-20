@@ -25,7 +25,7 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Run linter
         run: npm run lint
@@ -36,16 +36,6 @@ jobs:
       - name: Build plugin
         run: npm run build
 
-      - name: Install plugin into test vault
-        run: npm run install:test-vault
-
-      - name: Package demo test vault
-        run: |
-          # Clean workspace cache/state from test vault if present
-          rm -f obsidian_daylio_plugin_test_vault/.obsidian/workspace.json
-          # Zip the entire test vault directory
-          zip -r example-vault-daylio-demo.zip obsidian_daylio_plugin_test_vault/
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -54,5 +44,5 @@ jobs:
             build/main.js.map
             manifest.json
             styles.css
-            example-vault-daylio-demo.zip
           generate_release_notes: true
+

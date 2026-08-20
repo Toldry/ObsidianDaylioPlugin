@@ -1,6 +1,6 @@
 # Daylio Mood Graph — Obsidian Plugin
 
-[![Download Demo Vault](https://img.shields.io/badge/Demo_Vault-Download_Example_Vault-purple?style=for-the-badge&logo=obsidian)](../../releases/latest)
+[![Download Demo Vault](https://img.shields.io/badge/Demo_Vault-Download_Example_Vault-purple?style=for-the-badge&logo=obsidian)](../../releases/tag/demo-vault)
 
 An [Obsidian](https://obsidian.md/) plugin that renders [Daylio](https://daylio.net/) mood data as a colour-coded graph, annotated with Obsidian vault entries.
 
@@ -8,7 +8,7 @@ An [Obsidian](https://obsidian.md/) plugin that renders [Daylio](https://daylio.
 
 Try out the plugin with pre-populated sample data:
 
-Download the **[Example Vault Zip](../../releases/latest)**, extract it, and open it in Obsidian to see a working graph with sample entries and event annotations out of the box.
+Download the **[Example Vault Zip](../../releases/download/demo-vault/example-vault-daylio-demo.zip)**, extract it, and open it in Obsidian to see a working graph with sample entries and event annotations out of the box.
 
 ![](screenshot.png)
 
