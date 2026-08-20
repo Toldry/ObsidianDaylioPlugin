@@ -52,7 +52,6 @@ into the vault's plugin folder), not the TypeScript sources directly.
   `plugin:daylio-mood-graph` → `src/`.
 - **Prod** (`npm run build`): `sourcemap: "linked"` — writes `build/main.js.map`
   as a separate file and adds a `//# sourceMappingURL=main.js.map` comment.
-  Ship `build/main.js.map` alongside `build/main.js` as a release asset.
 
 ## Project structure
 
@@ -340,8 +339,9 @@ The plugin uses an automated GitHub Actions release workflow triggered on versio
    - Creates a commit and an annotated git tag without `v` prefix (e.g. `1.1.7`, configured via `.npmrc`).
    - Pushes commit and tag upstream via `postversion` hook (`git push && git push --tags`).
 2. GitHub Actions automatically:
-   - Builds the production bundle (`build/main.js`, `build/main.js.map`, `manifest.json`, `styles.css`).
-   - Publishes the GitHub release with only the 4 plugin release assets attached.
+   - Builds the production bundle (`build/main.js`, `manifest.json`, `styles.css`).
+   - Generates cryptographic artifact attestations for provenance.
+   - Publishes the GitHub release with only the 3 plugin release assets attached (`main.js`, `manifest.json`, `styles.css`).
 
 ### Updating the Demo Vault Release
 

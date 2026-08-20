@@ -167,8 +167,10 @@
 }
 
 .daylio-is-panning,
-.daylio-is-panning * {
-	cursor: grabbing !important;
+.daylio-is-panning *,
+.daylio-graph-root.daylio-is-panning,
+.daylio-graph-root.daylio-is-panning * {
+	cursor: grabbing;
 	user-select: none;
 }
 

@@ -8,6 +8,8 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   build:
@@ -36,12 +38,19 @@ jobs:
       - name: Build plugin
         run: npm run build
 
+      - name: Generate artifact attestations
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            build/main.js
+            manifest.json
+            styles.css
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             build/main.js
-            build/main.js.map
             manifest.json
             styles.css
           generate_release_notes: true
