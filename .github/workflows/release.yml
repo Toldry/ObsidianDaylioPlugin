@@ -1,0 +1,58 @@
+name: Release Obsidian Plugin
+
+on:
+  push:
+    tags:
+      - "*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Run unit & integration tests
+        run: npm test
+
+      - name: Build plugin
+        run: npm run build
+
+      - name: Install plugin into test vault
+        run: npm run install:test-vault
+
+      - name: Package demo test vault
+        run: |
+          # Clean workspace cache/state from test vault if present
+          rm -f obsidian_daylio_plugin_test_vault/.obsidian/workspace.json
+          # Zip the entire test vault directory
+          zip -r example-vault-daylio-demo.zip obsidian_daylio_plugin_test_vault/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/main.js
+            build/main.js.map
+            manifest.json
+            styles.css
+            example-vault-daylio-demo.zip
+          generate_release_notes: true

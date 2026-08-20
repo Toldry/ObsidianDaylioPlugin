@@ -329,11 +329,17 @@ The graph builder (`src/graph-builder.ts`) is optimised for fast zoom redraws:
 
 ## Releasing
 
-The files Obsidian needs are `build/main.js`, `build/main.js.map`,
-`manifest.json`, and `styles.css`. When publishing a new version:
+The plugin uses an automated GitHub Actions release workflow triggered on version tags.
 
-1. Bump `version` in `manifest.json` (and `package.json`).
-2. Run `npm run build`.
-3. Create a GitHub release tagged with the version number (e.g. `1.0.0`).
-4. Attach `build/main.js`, `build/main.js.map`, `manifest.json`, and
-   `styles.css` as release assets.
+### Standard Release Process
+
+1. Run `npm version patch` (or `minor` / `major`):
+   - Automatically runs `npm run lint` and `npm test` via the `preversion` hook.
+   - Bumps version in `package.json` and syncs `manifest.json`.
+   - Creates a commit and an annotated git tag (e.g. `v1.1.7`).
+   - Pushes commit and tag upstream via `postversion` hook (`git push && git push --tags`).
+2. GitHub Actions automatically:
+   - Builds the production bundle (`build/main.js`, `build/main.js.map`, `manifest.json`, `styles.css`).
+   - Packages the demo test vault into `example-vault-daylio-demo.zip`.
+   - Publishes the GitHub release with all release assets attached.
+
