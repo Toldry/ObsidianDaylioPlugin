@@ -7,12 +7,7 @@ import {
 	type DayData,
 	type VaultEvent,
 } from "./types";
-import {
-	barGapFor,
-	computeStickyLabelPosition,
-	type StickyLabelParams,
-	type StickyLabelResult,
-} from "./utils";
+import { barGapFor } from "./utils";
 
 // ─── Layout constants ───────────────────────────────────────────────
 
