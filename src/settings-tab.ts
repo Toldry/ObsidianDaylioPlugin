@@ -1,10 +1,46 @@
-import { App, Plugin, PluginSettingTab, Setting, normalizePath } from "obsidian";
+import {
+	App,
+	Plugin,
+	PluginSettingTab,
+	Setting,
+	normalizePath,
+	TFile,
+	type SettingDefinitionItem,
+} from "obsidian";
 import {
 	MOOD_LEVELS,
 	DEFAULT_MOOD_COLORS,
 	type HasDaylioSettings,
 } from "./types";
-import { DATE_PREFIX_REGEX } from "./vault-scanner";
+
+function getPath(obj: Record<string, unknown>, path: string): unknown {
+	let cursor: unknown = obj;
+	for (const part of path.split(".")) {
+		if (cursor === null || typeof cursor !== "object") return undefined;
+		cursor = (cursor as Record<string, unknown>)[part];
+	}
+	return cursor;
+}
+
+function setPath(
+	obj: Record<string, unknown>,
+	path: string,
+	value: unknown,
+): void {
+	const parts = path.split(".");
+	const last = parts.pop();
+	if (!last) return;
+	let cursor: Record<string, unknown> = obj;
+	for (const part of parts) {
+		let next = cursor[part];
+		if (next === null || typeof next !== "object") {
+			next = {};
+			cursor[part] = next;
+		}
+		cursor = next as Record<string, unknown>;
+	}
+	cursor[last] = value;
+}
 
 export class DaylioSettingTab extends PluginSettingTab {
 	plugin: HasDaylioSettings;
@@ -14,143 +50,94 @@ export class DaylioSettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
-	getSettingDefinitions(): unknown[] {
+	getControlValue(key: string): unknown {
+		return getPath(
+			this.plugin.settings as unknown as Record<string, unknown>,
+			key,
+		);
+	}
+
+	async setControlValue(key: string, value: unknown): Promise<void> {
+		if (key === "eventScanDir" && typeof value === "string") {
+			value = value.trim() ? normalizePath(value.trim()) : "";
+		}
+		setPath(
+			this.plugin.settings as unknown as Record<string, unknown>,
+			key,
+			value,
+		);
+		await this.plugin.saveSettings();
+	}
+
+	getSettingDefinitions(): SettingDefinitionItem[] {
 		return [
 			{
 				name: "CSV file path",
-				description: "Select the Daylio CSV export file from your vault.",
+				desc: "Select the Daylio CSV export file from your vault.",
+				control: {
+					type: "file",
+					key: "csvPath",
+					filter: (file: unknown) => file instanceof TFile && file.extension === "csv",
+					placeholder: "attachments/daylio_export.csv",
+				},
 			},
 			{
 				name: "Event scan folder",
-				description: "Vault-relative folder to scan for event notes (e.g. entries). Leave blank to scan the whole vault.",
+				desc: "Vault-relative folder to scan for event notes (e.g. entries). Leave blank to scan the whole vault.",
+				control: {
+					type: "folder",
+					key: "eventScanDir",
+					placeholder: "entries",
+					includeRoot: true,
+				},
 			},
 			{
 				name: "Show event labels",
-				description: "Display the floating label cards for notes that have a daylio_event frontmatter field.",
+				desc: "Display the floating label cards for notes that have a daylio_event frontmatter field. The column highlights and hover markers are always shown.",
+				control: {
+					type: "toggle",
+					key: "showEventLabels",
+				},
 			},
 			{
-				name: "Mood colors",
-				description: "Customize colors for rad, good, meh, bad, and awful mood levels.",
+				type: "group",
+				heading: "Mood colors",
+				items: [
+					...MOOD_LEVELS.map((mood) => ({
+						name: mood.charAt(0).toUpperCase() + mood.slice(1),
+						control: {
+							type: "color" as const,
+							key: `moodColors.${mood}`,
+						},
+					})),
+					{
+						name: "Reset colors to defaults",
+						render: (setting: Setting) => {
+							setting.addButton((btn) =>
+								btn.setButtonText("Reset").onClick(async () => {
+									this.plugin.settings.moodColors = {
+										...DEFAULT_MOOD_COLORS,
+									};
+									await this.plugin.saveSettings();
+									if (
+										typeof (
+											this as unknown as {
+												update?: () => void;
+											}
+										).update === "function"
+									) {
+										(
+											this as unknown as {
+												update: () => void;
+											}
+										).update();
+									}
+								}),
+							);
+						},
+					},
+				],
 			},
 		];
-	}
-
-	display(): void {
-		const { containerEl } = this;
-		containerEl.empty();
-
-		// ── CSV file picker ─────────────────────────────────────
-		const csvFiles = this.app.vault
-			.getFiles()
-			.filter((f) => f.extension === "csv")
-			.sort((a, b) => a.path.localeCompare(b.path));
-
-		const currentPath = this.plugin.settings.csvPath;
-
-		new Setting(containerEl)
-			.setName("CSV file path")
-			.setDesc(
-				csvFiles.length === 0
-					? "No CSV files found in this vault. " +
-					  "Add your Daylio export first, then reopen settings."
-					: "Select the Daylio CSV export file from your vault.",
-			)
-			.addDropdown((dropdown) => {
-				dropdown.addOption("", "— choose a file —");
-
-				for (const file of csvFiles) {
-					dropdown.addOption(file.path, normalizePath(file.path));
-				}
-
-				if (
-					currentPath &&
-					!csvFiles.some((f) => f.path === currentPath)
-				) {
-					dropdown.addOption(
-						currentPath,
-						`${currentPath} ⚠ not found`,
-					);
-				}
-
-				dropdown
-					.setValue(currentPath)
-					.onChange(async (value) => {
-						this.plugin.settings.csvPath = value;
-						await this.plugin.saveSettings();
-					});
-			});
-
-		// ── Event scan folder ────────────────────────────────────
-		const scanDirDesc = (dir: string): string => {
-			const base =
-				"Vault-relative folder to scan for event notes (e.g. entries). " +
-				"Leave blank to scan the whole vault.";
-			const trimmed = dir.trim();
-			if (!trimmed) return base;
-			const prefix = trimmed.replace(/\/+$/, "") + "/";
-			const count = this.app.vault
-				.getMarkdownFiles()
-				.filter((f) => f.path.startsWith(prefix) && DATE_PREFIX_REGEX.test(f.basename))
-				.length;
-			return `${base} — ${count} valid date-prefixed note${count === 1 ? "" : "s"} found in "${trimmed}".`;
-		};
-
-		const scanDirSetting = new Setting(containerEl)
-			.setName("Event scan folder")
-			.setDesc(scanDirDesc(this.plugin.settings.eventScanDir))
-			.addText((text) =>
-				text
-					.setPlaceholder("entries")
-					.setValue(this.plugin.settings.eventScanDir)
-					.onChange(async (value) => {
-						const trimmed = normalizePath(value.trim());
-						this.plugin.settings.eventScanDir = trimmed;
-						await this.plugin.saveSettings();
-						scanDirSetting.setDesc(scanDirDesc(value));
-					})
-			);
-
-		new Setting(containerEl)
-			.setName("Show event labels")
-			.setDesc(
-				"Display the floating label cards for notes that have a " +
-				"daylio_event frontmatter field. " +
-				"The column highlights and hover markers are always shown.",
-			)
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.showEventLabels)
-					.onChange(async (value) => {
-						this.plugin.settings.showEventLabels = value;
-						await this.plugin.saveSettings();
-					}),
-			);
-
-		new Setting(containerEl).setName("Mood colors").setHeading();
-
-		for (const mood of MOOD_LEVELS) {
-			new Setting(containerEl)
-				.setName(mood.charAt(0).toUpperCase() + mood.slice(1))
-				.addColorPicker((picker) =>
-					picker
-						.setValue(this.plugin.settings.moodColors[mood])
-						.onChange(async (value) => {
-							this.plugin.settings.moodColors[mood] = value;
-							await this.plugin.saveSettings();
-						}),
-				);
-		}
-
-		new Setting(containerEl)
-			.setName("Reset colors to defaults")
-			.addButton((btn) =>
-				btn.setButtonText("Reset").onClick(async () => {
-					this.plugin.settings.moodColors = {
-						...DEFAULT_MOOD_COLORS,
-					};
-					await this.plugin.saveSettings();
-					this.display();
-				}),
-			);
 	}
 }

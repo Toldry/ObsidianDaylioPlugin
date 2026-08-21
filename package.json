@@ -14,8 +14,9 @@
 		"update:test-vault": "npm run build && npm run install:test-vault",
 		"install:custom-vault": "node \"scripts/install_custom_vault.cjs\"",
 		"update:custom-vault": "npm run build && npm run install:custom-vault",
+		"typecheck": "tsc -noEmit -skipLibCheck",
 		"lint": "eslint src/ --ext .ts",
-		"preversion": "npm ls && npm run lint && npm test",
+		"preversion": "npm ls && npm run typecheck && npm run lint && npm test",
 		"version": "node scripts/version_sync.cjs && git add manifest.json",
 		"postversion": "git push && git push --tags",
 		"release:demo-vault": "node scripts/release_demo_vault.cjs"
@@ -30,7 +31,7 @@
 		"esbuild": "0.28.2",
 		"eslint": "^9.39.5",
 		"eslint-plugin-obsidianmd": "^0.4.1",
-		"obsidian": "^1.7.2",
+		"obsidian": "^1.13.1",
 		"tslib": "2.4.0",
 		"typescript": "^5.8.3",
 		"vitest": "^4.1.2"

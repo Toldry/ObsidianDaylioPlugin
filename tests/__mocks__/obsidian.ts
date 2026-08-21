@@ -14,7 +14,7 @@ export class App {}
 
 export class ItemView {
 	app: App = new App();
-	containerEl: HTMLElement = document.createElement("div");
+	containerEl: HTMLElement = typeof document !== "undefined" ? document.createElement("div") : ({} as HTMLElement);
 	constructor(_leaf: WorkspaceLeaf) {}
 	addAction(_icon: string, _title: string, _callback: () => void): void {}
 }
@@ -33,7 +33,7 @@ export class Plugin {
 
 export class PluginSettingTab {
 	app: App;
-	containerEl: HTMLElement = document.createElement("div");
+	containerEl: HTMLElement = typeof document !== "undefined" ? document.createElement("div") : ({} as HTMLElement);
 	constructor(app: App, _plugin: unknown) { this.app = app; }
 }
 
@@ -52,6 +52,7 @@ export class Setting {
 export class TFile {
 	path = "";
 	basename = "";
+	extension = "";
 }
 
 export class Notice {

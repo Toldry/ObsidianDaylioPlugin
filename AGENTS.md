@@ -18,6 +18,12 @@ with clickable event labels via a `daylio_event` frontmatter field.
 # Install dependencies (first time only)
 npm install
 
+# Type-check all TypeScript files (src/ and tests/)
+npm run typecheck
+
+# Lint TypeScript sources
+npm run lint
+
 # Development — watch mode, rebuilds on every save, includes source maps
 npm run dev
 
@@ -65,7 +71,7 @@ daylio-obsidian-plugin/
 │   ├── vault-scanner.ts     ← scanVaultEvents, DATE_PREFIX_REGEX
 │   ├── graph-builder.ts     ← buildGraphSvg, computeEntrySpans (pure SVG builder)
 │   ├── graph-view.ts        ← DaylioGraphView (Obsidian ItemView subclass)
-│   ├── settings-tab.ts      ← DaylioSettingTab (Obsidian PluginSettingTab)
+│   ├── settings-tab.ts      ← DaylioSettingTab (Declarative PluginSettingTab for Obsidian 1.13+)
 │   └── log.ts               ← Thin debug-logging wrapper (no-ops in production)
 ├── tests/
 │   ├── __mocks__/
@@ -74,6 +80,7 @@ daylio-obsidian-plugin/
 │   │   └── vault-reader.ts  ← Filesystem-based vault scanner for integration tests
 │   ├── unit/
 │   │   ├── csv-parser.test.ts   ← Unit tests: isMoodLevel, parseCsvLine, parseDaylioCsv, groupByDay
+│   │   ├── settings-tab.test.ts ← Unit tests: declarative settings definitions, getters/setters
 │   │   └── vault-scanner.test.ts ← Unit tests: scanVaultEvents (with mock App)
 │   └── integration/
 │       └── test-vault.test.ts   ← Integration tests against real vault files
@@ -287,6 +294,12 @@ If you add a new pure function, export it from its module and import it directly
 test file. If you add logic that depends on the Obsidian API, test it through the
 mock-App pattern in `tests/unit/vault-scanner.test.ts`.
 
+### TypeScript and Type-Checking in Tests
+
+- `tsconfig.json` includes both `"src/**/*.ts"` and `"tests/**/*.ts"`, ensuring that `npm run typecheck` (`tsc -noEmit --skipLibCheck`) and the IDE typecheck all production and test files.
+- Vitest (`npm test`) transpiles TypeScript using esbuild for fast execution without type-checking. Always run `npm run typecheck` alongside `npm test`.
+- When mocking Obsidian classes like `Plugin` in tests, define a concrete test subclass (e.g. `class MockPlugin extends Plugin implements HasDaylioSettings`) instead of trying to instantiate `new Plugin()` directly (which is an `abstract class` in `obsidian.d.ts`).
+
 ## CSS conventions
 
 All CSS lives in `styles.css`. Classes are prefixed `daylio-` to avoid
@@ -333,7 +346,7 @@ The plugin uses an automated GitHub Actions release workflow triggered on versio
 ### Standard Release Process
 
 1. Run `npm version patch` (or `minor` / `major`):
-   - Automatically runs `npm ls`, `npm run lint`, and `npm test` via the `preversion` hook to ensure clean dependencies, style, and tests.
+   - Automatically runs `npm ls`, `npm run typecheck`, `npm run lint`, and `npm test` via the `preversion` hook to ensure clean dependencies, types, style, and tests.
    - Bumps version in `package.json` and syncs `manifest.json`.
    - Creates a commit and an annotated git tag without `v` prefix (e.g. `1.1.7`, configured via `.npmrc`).
    - Pushes commit and tag upstream via `postversion` hook (`git push && git push --tags`).
