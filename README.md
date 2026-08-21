@@ -1,8 +1,31 @@
 # Daylio Mood Graph — Obsidian Plugin
 
+[![Obsidian Community Plugin](https://img.shields.io/badge/Obsidian-Community_Plugin-purple?style=for-the-badge&logo=obsidian)](https://community.obsidian.md/plugins/daylio-mood-graph)
 [![Download Demo Vault](https://img.shields.io/badge/Demo_Vault-Download_Example_Vault-purple?style=for-the-badge&logo=obsidian)](../../releases/tag/demo-vault)
 
 An [Obsidian](https://obsidian.md/) plugin that renders [Daylio](https://daylio.net/) mood data as a color-coded graph, annotated with Obsidian vault entries.
+
+## Table of Contents
+
+- [Quick Start / Demo Vault](#quick-start--demo-vault)
+- [Installation](#installation)
+  - [From Community Plugins](#from-the-obsidian-community-plugins-directory)
+  - [Manual Installation](#manual-installation)
+- [Setup](#setup)
+  - [1. Export data from Daylio](#1-export-data-from-daylio)
+  - [2. Format filenames with ISO dates](#2-format-obsidian-archives-entries-filenames)
+  - [3. Configure CSV path](#3-tell-the-plugin-where-the-csv-is)
+  - [4. Open the graph](#4-open-the-graph)
+- [Annotating the Graph with Vault Events](#annotating-the-graph-with-vault-events)
+  - [Point Events](#1-point-events)
+  - [Range Events](#2-range-events)
+- [Settings](#settings)
+- [Compatibility](#compatibility)
+- [Development](#development)
+  - [Building](#building)
+  - [Running the tests](#running-the-tests)
+- [Technical Details](#technical-details)
+  - [Architecture & Data Flow](#architecture--data-flow)
 
 ## Quick Start / Demo Vault
 
@@ -14,11 +37,13 @@ Download the **[Example Vault Zip](../../releases/download/demo-vault/example-va
 
 ## Installation
 
-### From the Community Plugin browser (once published)
+### From the Obsidian Community Plugins directory
 
-1. Open **Settings → Community plugins → Browse**.
-2. Search for **Daylio Mood Graph** and install.
-3. Enable the plugin.
+- **Direct install**: [Open in Obsidian](obsidian://show-plugin?id=daylio-mood-graph) *(requires Obsidian installed)* or view on the [Obsidian Plugin Hub](https://community.obsidian.md/plugins/daylio-mood-graph).
+- **In-app search**:
+  1. Open **Settings → Community plugins → Browse**.
+  2. Search for **Daylio Mood Graph** and install.
+  3. Enable the plugin.
 
 ### Manual installation
 

@@ -37,10 +37,18 @@ export default tseslint.config(
 
 			// Disallow console.log in source (use the log() helper instead).
 			// console.debug, console.info, console.warn, and console.error are fine.
-			"no-console": ["warn", { allow: ["debug", "info", "warn", "error"] }],
+			"no-console": ["warn", { allow: ["debug", "warn", "error"] }],
 
 			// No duplicate imports from the same module.
 			"no-duplicate-imports": "error",
+
+			// Enforce sentence case in UI strings, allowing "Daylio" as a brand name.
+			"obsidianmd/ui/sentence-case": [
+				"warn",
+				{
+					brands: ["Daylio"],
+				},
+			],
 		},
 	},
 
