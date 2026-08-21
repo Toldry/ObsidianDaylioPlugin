@@ -294,9 +294,10 @@ If you add a new pure function, export it from its module and import it directly
 test file. If you add logic that depends on the Obsidian API, test it through the
 mock-App pattern in `tests/unit/vault-scanner.test.ts`.
 
-### TypeScript and Type-Checking in Tests
+### TypeScript and Type-Checking
 
-- `tsconfig.json` includes both `"src/**/*.ts"` and `"tests/**/*.ts"`, ensuring that `npm run typecheck` (`tsc -noEmit --skipLibCheck`) and the IDE typecheck all production and test files.
+- `tsconfig.json` includes `"src/**/*.ts"`, `"src/**/*.d.ts"`, and `"tests/**/*.ts"`, ensuring that `npm run typecheck` (`tsc -noEmit`), the IDE, and ESLint typecheck all production and test files while discovering ambient type declarations (such as `src/svg.d.ts`).
+- **`skipLibCheck: true` must always remain in `tsconfig.json`**: The `obsidian` API type declaration file (`obsidian.d.ts`) contains upstream interface conflicts with DOM definitions (`Menu`, `Modal`, `PopoverSuggest` missing `onHistoryBack`). If `skipLibCheck: true` is missing from `tsconfig.json`, TypeScript fails to parse `obsidian.d.ts`, causing external tools (Obsidian community automated review bots, IDE Language Server, ESLint `projectService`) to degrade all Obsidian types into `error` (which acts as `any`). This results in cascading `@typescript-eslint/no-unsafe-*` warnings across the codebase.
 - Vitest (`npm test`) transpiles TypeScript using esbuild for fast execution without type-checking. Always run `npm run typecheck` alongside `npm test`.
 - When mocking Obsidian classes like `Plugin` in tests, define a concrete test subclass (e.g. `class MockPlugin extends Plugin implements HasDaylioSettings`) instead of trying to instantiate `new Plugin()` directly (which is an `abstract class` in `obsidian.d.ts`).
 

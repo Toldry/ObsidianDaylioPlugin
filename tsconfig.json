@@ -16,6 +16,7 @@
 		"strictBindCallApply": true,
 		"allowSyntheticDefaultImports": true,
 		"useUnknownInCatchVariables": true,
+		"skipLibCheck": true,
 		"lib": [
 			"DOM",
 			"ES2020"
@@ -23,6 +24,7 @@
 	},
 	"include": [
 		"src/**/*.ts",
+		"src/**/*.d.ts",
 		"tests/**/*.ts"
 	]
 }
