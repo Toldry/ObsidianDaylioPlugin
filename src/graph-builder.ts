@@ -481,7 +481,7 @@ export function buildGraphSvg(
 	const WIDE_PILL_Y_OFFSET = CALLOUT_CARD_Y_OFFSET;
 
 	// Measure canvas for accurate label text widths
-	const measureCanvas = document.createElement("canvas");
+	const measureCanvas = createEl("canvas");
 	const measureCtx = measureCanvas.getContext("2d");
 	if (measureCtx) {
 		measureCtx.font = `${LABEL_FONT_SIZE}px system-ui, sans-serif`;
@@ -831,9 +831,10 @@ export function buildGraphSvg(
 					foAttrs["data-is-callout"] = "true";
 				}
 				const fo = svgEl("foreignObject", foAttrs);
-				const div = document.createElement("div");
-				div.className = "daylio-range-callout-card";
-				div.textContent = span.event.label ?? "";
+				const div = createDiv({
+					cls: "daylio-range-callout-card",
+					text: span.event.label ?? "",
+				});
 				fo.appendChild(div);
 				pillGroup.appendChild(fo);
 			} else {
@@ -867,9 +868,10 @@ export function buildGraphSvg(
 					foAttrs["data-is-callout"] = "false";
 				}
 				const fo = svgEl("foreignObject", foAttrs);
-				const div = document.createElement("div");
-				div.className = "daylio-range-pill-text";
-				div.textContent = span.event.label ?? "";
+				const div = createDiv({
+					cls: "daylio-range-pill-text",
+					text: span.event.label ?? "",
+				});
 				fo.appendChild(div);
 				pillGroup.appendChild(fo);
 			}

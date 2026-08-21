@@ -62,3 +62,14 @@ export class Notice {
 // Module-level functions
 export function addIcon(_iconId: string, _svgContent: string): void {}
 export function normalizePath(path: string): string { return path; }
+
+// Minimal DOM helper stubs for test environments
+export const createEl = (tag: string): HTMLElement =>
+	(typeof document !== "undefined" ? document.createElement(tag) : ({}) as HTMLElement);
+export const createDiv = (): HTMLDivElement => createEl("div") as HTMLDivElement;
+export const createSpan = (): HTMLSpanElement => createEl("span") as HTMLSpanElement;
+
+(globalThis as unknown as Record<string, unknown>).createEl ??= createEl;
+(globalThis as unknown as Record<string, unknown>).createDiv ??= createDiv;
+(globalThis as unknown as Record<string, unknown>).createSpan ??= createSpan;
+
