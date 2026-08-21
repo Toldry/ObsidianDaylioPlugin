@@ -24,8 +24,8 @@ if (fs.existsSync(workspaceFile)) {
 }
 
 // 3. Create zip archives (generic name and versioned name)
-const genericZip = path.join(rootDir, "example-vault-daylio-demo.zip");
-const versionedZip = path.join(rootDir, `example-vault-daylio-demo-${version}.zip`);
+const genericZip = path.join(rootDir, "obsidian-daylio-plugin-demo-vault.zip");
+const versionedZip = path.join(rootDir, `obsidian-daylio-plugin-demo-vault-${version}.zip`);
 
 console.log(`3. Creating zip archives: ${path.basename(genericZip)} and ${path.basename(versionedZip)}...`);
 
@@ -48,7 +48,7 @@ try {
 		exists = false;
 	}
 
-	const title = `Daylio Mood Graph — Demo Vault (${version})`;
+	const title = `Demo Vault (${version})`;
 	const notes = `Pre-configured demo vault containing sample Daylio data and event notes. Plugin version: ${version} (updated ${new Date().toISOString().split("T")[0]}).`;
 
 	if (exists) {

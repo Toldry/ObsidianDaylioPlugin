@@ -354,7 +354,7 @@ The plugin uses an automated GitHub Actions release workflow triggered on versio
    - Builds the production bundle (`build/main.js`, `manifest.json`, `styles.css`).
    - Generates cryptographic artifact attestations for provenance.
    - Publishes the GitHub release with only the 3 plugin release assets attached (`main.js`, `manifest.json`, `styles.css`).
-   - Packages and updates the permanent `demo-vault` release with versioned and generic archives (`example-vault-daylio-demo.zip` and `example-vault-daylio-demo-<VERSION>.zip`).
+   - Packages and updates the permanent `demo-vault` release with versioned and generic archives (`obsidian-daylio-plugin-demo-vault.zip` and `obsidian-daylio-plugin-demo-vault-<VERSION>.zip`).
 
 ### Updating the Demo Vault Release Manually (Optional)
 
