@@ -10,6 +10,7 @@ import {
 import {
 	MOOD_LEVELS,
 	DEFAULT_MOOD_COLORS,
+	VIEW_TYPE_DAYLIO,
 	type HasDaylioSettings,
 } from "./types";
 
@@ -44,6 +45,7 @@ function setPath(
 
 export class DaylioSettingTab extends PluginSettingTab {
 	plugin: HasDaylioSettings;
+	private hasChanges = false;
 
 	constructor(app: App, plugin: Plugin & HasDaylioSettings) {
 		super(app, plugin);
@@ -61,12 +63,33 @@ export class DaylioSettingTab extends PluginSettingTab {
 		if (key === "eventScanDir" && typeof value === "string") {
 			value = value.trim() ? normalizePath(value.trim()) : "";
 		}
+		const currentValue = this.getControlValue(key);
+		if (currentValue !== value) {
+			this.hasChanges = true;
+		}
 		setPath(
 			this.plugin.settings as unknown as Record<string, unknown>,
 			key,
 			value,
 		);
 		await this.plugin.saveSettings();
+	}
+
+	hide(): void {
+		if (this.hasChanges) {
+			this.hasChanges = false;
+			this.reRenderOpenGraphs();
+		}
+	}
+
+	private reRenderOpenGraphs(): void {
+		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_DAYLIO);
+		for (const leaf of leaves) {
+			const view = leaf.view as unknown as { renderGraph?: () => Promise<void> | void };
+			if (typeof view?.renderGraph === "function") {
+				void view.renderGraph();
+			}
+		}
 	}
 
 	getSettingDefinitions(): SettingDefinitionItem[] {
@@ -115,6 +138,7 @@ export class DaylioSettingTab extends PluginSettingTab {
 						render: (setting: Setting) => {
 							setting.addButton((btn) =>
 								btn.setButtonText("Reset").onClick(async () => {
+									this.hasChanges = true;
 									this.plugin.settings.moodColors = {
 										...DEFAULT_MOOD_COLORS,
 									};

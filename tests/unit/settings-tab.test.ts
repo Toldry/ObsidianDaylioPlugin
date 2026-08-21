@@ -3,6 +3,7 @@ import {
 	App,
 	Plugin,
 	TFile,
+	WorkspaceLeaf,
 	type SettingDefinitionControl,
 	type SettingDefinitionGroup,
 	type SettingFileControl,
@@ -109,5 +110,43 @@ describe("DaylioSettingTab (Declarative Settings)", () => {
 
 		await tab.setControlValue("moodColors.rad", "#abcdef");
 		expect(plugin.settings.moodColors.rad).toBe("#abcdef");
+	});
+
+	it("does not trigger re-render on hide() if no values were changed", () => {
+		const app = new App();
+		const renderGraphMock = vi.fn().mockResolvedValue(undefined);
+		vi.spyOn(app.workspace, "getLeavesOfType").mockReturnValue([
+			{
+				view: { renderGraph: renderGraphMock },
+			} as unknown as WorkspaceLeaf,
+		]);
+
+		const plugin = new MockPlugin(app);
+		const tab = new DaylioSettingTab(app, plugin);
+
+		tab.hide();
+		expect(renderGraphMock).not.toHaveBeenCalled();
+	});
+
+	it("triggers re-render on hide() if settings values were modified", async () => {
+		const app = new App();
+		const renderGraphMock = vi.fn().mockResolvedValue(undefined);
+		vi.spyOn(app.workspace, "getLeavesOfType").mockReturnValue([
+			{
+				view: { renderGraph: renderGraphMock },
+			} as unknown as WorkspaceLeaf,
+		]);
+
+		const plugin = new MockPlugin(app);
+		const tab = new DaylioSettingTab(app, plugin);
+
+		await tab.setControlValue("showEventLabels", false);
+		tab.hide();
+
+		expect(renderGraphMock).toHaveBeenCalledTimes(1);
+
+		// Subsequent hide without changes should not re-trigger
+		tab.hide();
+		expect(renderGraphMock).toHaveBeenCalledTimes(1);
 	});
 });

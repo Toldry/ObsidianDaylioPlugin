@@ -10,7 +10,20 @@
  * TypeScript and vitest to be happy.
  */
 
-export class App {}
+export class WorkspaceLeaf {
+	view: unknown;
+}
+
+export class Workspace {
+	leaves: WorkspaceLeaf[] = [];
+	getLeavesOfType(_type: string): WorkspaceLeaf[] {
+		return this.leaves;
+	}
+}
+
+export class App {
+	workspace: Workspace = new Workspace();
+}
 
 export class ItemView {
 	app: App = new App();
@@ -18,8 +31,6 @@ export class ItemView {
 	constructor(_leaf: WorkspaceLeaf) {}
 	addAction(_icon: string, _title: string, _callback: () => void): void {}
 }
-
-export class WorkspaceLeaf {}
 
 export class Plugin {
 	app: App = new App();

@@ -132,19 +132,19 @@ export class DaylioGraphView extends ItemView {
 		// ── Load CSV ────────────────────────────────────────────
 		const csvPath = this.plugin.settings.csvPath;
 		if (!csvPath) {
-			container.createEl("p", {
-				text: "No CSV path configured. Open the Daylio mood graph settings to set the path to your Daylio export.",
-				cls: "daylio-graph-notice",
-			});
+			this.renderConfigNotice(
+				container,
+				"No CSV path configured. Open the Daylio mood graph settings to set the path to your Daylio export.",
+			);
 			return;
 		}
 
 		const csvFile = this.app.vault.getAbstractFileByPath(csvPath);
 		if (!(csvFile instanceof TFile)) {
-			container.createEl("p", {
-				text: `CSV file not found at "${csvPath}". Check the path in settings.`,
-				cls: "daylio-graph-notice",
-			});
+			this.renderConfigNotice(
+				container,
+				`CSV file not found at "${csvPath}". Check the path in settings.`,
+			);
 			return;
 		}
 
@@ -684,5 +684,39 @@ export class DaylioGraphView extends ItemView {
 			}
 			this.updateStickyRangeLabels();
 		});
+	}
+
+	/**
+	 * Render a notice with an "Open Settings" CTA button when configuration is missing or invalid.
+	 */
+	private renderConfigNotice(container: HTMLElement, message: string): void {
+		const noticeBox = container.createDiv({ cls: "daylio-graph-notice-container" });
+		noticeBox.createEl("p", {
+			text: message,
+			cls: "daylio-graph-notice",
+		});
+		const btn = noticeBox.createEl("button", {
+			text: "Open settings",
+			cls: "mod-cta daylio-open-settings-btn",
+		});
+		btn.addEventListener("click", () => {
+			this.openSettings();
+		});
+	}
+
+	/**
+	 * Open Obsidian settings directly navigated to the Daylio plugin tab.
+	 */
+	private openSettings(): void {
+		const appWithSetting = this.app as unknown as {
+			setting?: {
+				open?: () => void;
+				openTabById?: (id: string) => void;
+			};
+		};
+		if (appWithSetting.setting?.open && appWithSetting.setting?.openTabById) {
+			appWithSetting.setting.open();
+			appWithSetting.setting.openTabById("daylio-mood-graph");
+		}
 	}
 }

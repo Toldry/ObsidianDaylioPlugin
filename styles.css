@@ -19,10 +19,23 @@
 	/* anchor for the absolutely-positioned legend */
 }
 
+.daylio-graph-notice-container {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 12px;
+	padding: 20px 0;
+}
+
 .daylio-graph-notice {
 	color: var(--text-muted);
 	font-style: italic;
-	padding: 20px 0;
+	margin: 0;
+	padding: 0;
+}
+
+.daylio-open-settings-btn {
+	cursor: pointer;
 }
 
 /* ── Toolbar (zoom slider) ──────────────────────────────────── */
