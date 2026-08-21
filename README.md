@@ -19,13 +19,10 @@ An [Obsidian](https://obsidian.md/) plugin that renders [Daylio](https://daylio.
 - [Annotating the Graph with Vault Events](#annotating-the-graph-with-vault-events)
   - [Point Events](#1-point-events)
   - [Range Events](#2-range-events)
-- [Settings](#settings)
-- [Compatibility](#compatibility)
 - [Development](#development)
   - [Building](#building)
   - [Running the tests](#running-the-tests)
 - [Technical Details](#technical-details)
-  - [Architecture & Data Flow](#architecture--data-flow)
 
 ## Quick Start / Demo Vault
 
@@ -37,26 +34,27 @@ Download the **[Example Vault Zip](../../releases/download/demo-vault/obsidian-d
 
 ## Installation
 
-### From the Obsidian Community Plugins directory
+### From the Obsidian Community Plugin Hub
 
-- **Direct install**: [Open in Obsidian](obsidian://show-plugin?id=daylio-mood-graph) *(requires Obsidian installed)* or view on the [Obsidian Plugin Hub](https://community.obsidian.md/plugins/daylio-mood-graph).
-- **In-app search**:
-  1. Open **Settings → Community plugins → Browse**.
-  2. Search for **Daylio Mood Graph** and install.
-  3. Enable the plugin.
+Follow the link: 
+
+- https://community.obsidian.md/plugins/daylio-mood-graph
+
 
 ### Manual installation
 
-1. Download `main.js`, `main.js.map`, `manifest.json`, and `styles.css` from the latest [GitHub release](../../releases/latest).
-2. Copy them into the Obsidian vault at: `<OBSIDIAN_VAULT_ROOT>/.obsidian/plugins/daylio-mood-graph/`
-3. In Obsidian: **Settings → Community plugins** → enable **Daylio Mood Graph**.
+1. Create a new directory named `daylio-mood-graph` at `<OBSIDIAN_VAULT_ROOT>/.obsidian/plugins/`
+2. Download the files from the [latest release](../../releases/latest) and copy them into `<OBSIDIAN_VAULT_ROOT>/.obsidian/plugins/daylio-mood-graph` 
+3. Open the Obsidian vault and go to **Settings → Community plugins** → enable **Daylio Mood Graph**.
 
 ## Setup
 
 ### 1. Export data from Daylio
 
 In the Daylio app: **More → Export Entries → CSV (table)**.
-Move the resulting file into the Obsidian vault, e.g. `<OBSIDIAN_VAULT_ROOT>/attachments/daylio_export_2026_08_19.csv`
+Move the CSV file into the Obsidian vault.
+
+ e.g. `<OBSIDIAN_VAULT_ROOT>/attachments/daylio_export_2026_08_19.csv`
 
 ### <a name="iso_date_filenames"></a> 2. Format Obsidian archive's entries' filenames
 To associate entries with specific dates, the `.md` file names must begin with an ISO date, e.g:
@@ -66,18 +64,13 @@ To associate entries with specific dates, the `.md` file names must begin with a
 
 ### 3. Tell the plugin where the CSV is
 
-**Settings → Daylio Mood Graph → CSV file path**. Enter the path relative
-to the Obsidian vault root, e.g.:
-
-```
-attachments/daylio_export.csv
-```
+**Settings → Community plugins → Daylio Mood Graph → CSV file path**
 
 ### 4. Open the graph
 
-Select the smiley-face icon in the left ribbon, or run the command
+Select the smiley-face icon <img src="src/daylio-face.svg" width="20" height="20" alt="Daylio icon" style="vertical-align: middle;"> in the left ribbon, or run the command
 **Daylio Mood Graph: Open mood graph** from the command palette
-(`Ctrl+P` / `Command+P`).
+(<kbd>Ctrl</kbd>+<kbd>P</kbd> / <kbd>Cmd</kbd>+<kbd>P</kbd>).
 
 The graph opens as a horizontal split pane below the active note.
 
@@ -85,7 +78,7 @@ The graph opens as a horizontal split pane below the active note.
 
 Vault notes can annotate the graph in two ways: **Point Events** (single-date milestones) and **Range Events** (multi-day timeline spans).
 
-1. Inside an Obsidian entry, press `Ctrl+;` (Windows/Linux) or `Command+;` (macOS) to add a note property, or run the command **Add file property** from the command palette (`Ctrl+P` / `Command+P`).
+1. Inside an Obsidian entry, press <kbd>Ctrl</kbd>+<kbd>;</kbd> (Windows/Linux) or <kbd>Cmd</kbd>+<kbd>;</kbd> (macOS) to add a note property, or run the command **Add file property** from the command palette (<kbd>Ctrl</kbd>+<kbd>P</kbd> / <kbd>Cmd</kbd>+<kbd>P</kbd>).
 2. Set the property name to `daylio_event`.
 3. Write the name of the event, and specify date range if needed:
 
@@ -141,19 +134,6 @@ daylio_event:
 
 An unspecified end-date is treated as an ongoing event.
 
-## Settings
-
-| Setting | Description | Default |
-|---|---|---|
-| CSV file path | Path to Daylio CSV export, relative to the vault root | *(empty)* |
-| Event scan folder | Restrict vault-event scanning to this folder (leave blank to scan the whole vault) | *(empty)* |
-| Show event labels | Whether event label cards are shown below the graph | On |
-| Mood colors | A color picker for each of the five mood levels | Daylio palette |
-
-## Compatibility
-
-- **Minimum Obsidian version:** 0.15.0
-- **Platforms:** desktop and mobile
 
 ## Development
 
@@ -166,10 +146,11 @@ npm run build
 
 After building, copy `build/main.js`, `manifest.json`,
 and `styles.css` into the Obsidian vault's plugin folder and reload Obsidian.
+
 The shorthand `npm run update:test-vault` builds and copies in one step.
 
 > [!TIP]
-> **Developer Workflow Tip:** It is recommended to keybind Obsidian's built-in command **"Reload app without saving"** to a keyboard shortcut such as `Ctrl+R` (Windows/Linux) or `Command+R` (macOS) under **Settings → Hotkeys**. This enables a rapid development loop: run `npm run update:test-vault`, switch to Obsidian, and press `Ctrl+R` (or `Command+R`) to see changes instantly.
+> **Developer Workflow Tip:** It is recommended to keybind Obsidian's built-in command **"Reload app without saving"** to a keyboard shortcut such as <kbd>Ctrl</kbd>+<kbd>R</kbd> (Windows/Linux) or <kbd>Cmd</kbd>+<kbd>R</kbd> (macOS) under **Settings → Hotkeys**. This enables a rapid development loop: run `npm run update:test-vault`, switch to Obsidian, and press <kbd>Ctrl</kbd>+<kbd>R</kbd> (or <kbd>Cmd</kbd>+<kbd>R</kbd>) to see changes instantly.
 
 ### Running the tests
 
@@ -180,16 +161,4 @@ the integration tests read real files directly from `obsidian_daylio_plugin_test
 ---
 ## Technical Details
 
-### Architecture & Data Flow
-
-1. **`DaylioGraphView`** (`src/graph-view.ts`): Extends `ItemView` (`VIEW_TYPE_DAYLIO = "daylio-mood-graph"`). Manages layout, controls (zoom slider/buttons, event checkbox), tooltip rendering, and horizontal scroll sync.
-2. **`buildGraphSvg`** (`src/graph-builder.ts`): Pure synchronous function. Builds SVG element tree containing date headers, lane dividers, mood bars, month lines, event connector lines, event pills/cards, and hover overlays.
-3. **`scanVaultEvents`** (`src/vault-scanner.ts`): Scans the vault for dated notes (`YYYY-MM-DD` in filename). Parses `daylio_event` and `daylio_events` properties (including ranges like `Label | 2024-01-01 -> 2024-01-15`, `to`, `..`, and ongoing ranges).
-4. **`parseDaylioCsv` & `groupByDay`** (`src/csv-parser.ts`): Parses Daylio CSV exports, normalizes moods, and groups entries by chronological dates.
-5. **Testing**: Unit tests run against pure modules using mock `App` object. Integration tests read `obsidian_daylio_plugin_test_vault/attachments/daylio_export.csv` and all the `.md` notes in `obsidian_daylio_plugin_test_vault/` to verify end-to-end
-behaviour against real data, including specific anchor points (known entry
-counts, dates, and mood distributions).
-
-The SVG rendering inside `buildGraphSvg` is not covered by automated tests
-as it depends on a live browser DOM; test it manually by opening the test
-vault in Obsidian.
+For in-depth details on the plugin's internal design, data flow, and module responsibilities, see the [Architecture section in AGENTS.md](AGENTS.md#architecture).

@@ -358,7 +358,7 @@ The plugin uses an automated GitHub Actions release workflow triggered on versio
 
 ### Updating the Demo Vault Release Manually (Optional)
 
-The demo test vault is hosted separately under the permanent `demo-vault` release tag on GitHub to keep plugin version releases clean. It is automatically updated on every version tag release via GitHub Actions, but can also be manually packaged and updated at any time:
+The demo test vault is hosted separately under the permanent [`demo-vault` release tag](https://github.com/Toldry/ObsidianDaylioPlugin/releases/tag/demo-vault) on GitHub to keep plugin version releases clean. It is automatically updated on every version tag release via GitHub Actions, but can also be manually packaged and updated at any time:
 ```bash
 npm run release:demo-vault
 ```
