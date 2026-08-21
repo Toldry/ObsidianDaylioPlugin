@@ -52,6 +52,22 @@ try {
 	const notes = `Pre-configured demo vault containing sample Daylio data and event notes. Plugin version: ${version} (updated ${new Date().toISOString().split("T")[0]}).`;
 
 	if (exists) {
+		// Clean up old named assets or previous versioned archives if they exist
+		try {
+			const viewJson = execSync("gh release view demo-vault --json assets", { cwd: rootDir, stdio: ["ignore", "pipe", "ignore"] }).toString();
+			const releaseInfo = JSON.parse(viewJson);
+			const currentGenericName = path.basename(genericZip);
+			const currentVersionedName = path.basename(versionedZip);
+			for (const asset of releaseInfo.assets || []) {
+				if (asset.name !== currentGenericName && asset.name !== currentVersionedName) {
+					console.log(`Removing previous demo vault asset: ${asset.name}...`);
+					execSync(`gh release delete-asset demo-vault "${asset.name}" -y`, { cwd: rootDir, stdio: "ignore" });
+				}
+			}
+		} catch {
+			// ignore cleanup errors
+		}
+
 		execSync(`gh release upload demo-vault "${genericZip}" "${versionedZip}" --clobber`, { cwd: rootDir, stdio: "inherit" });
 		execSync(`gh release edit demo-vault --title "${title}" --notes "${notes}"`, { cwd: rootDir, stdio: "inherit" });
 	} else {
