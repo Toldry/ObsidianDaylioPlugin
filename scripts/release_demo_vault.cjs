@@ -23,11 +23,23 @@ if (fs.existsSync(workspaceFile)) {
 	console.log("2. Removed test vault workspace.json");
 }
 
-// 3. Create zip archives (generic name and versioned name)
+// 3. Ensure plugin data.json is pre-configured with default csvPath
+const pluginDir = path.join(testVaultDir, ".obsidian", "plugins", "daylio-mood-graph");
+if (!fs.existsSync(pluginDir)) {
+	fs.mkdirSync(pluginDir, { recursive: true });
+}
+const pluginDataFile = path.join(pluginDir, "data.json");
+const defaultPluginData = {
+	csvPath: "attachments/daylio_export.csv"
+};
+fs.writeFileSync(pluginDataFile, JSON.stringify(defaultPluginData, null, 2) + "\n", "utf8");
+console.log("3. Configured plugin data.json with default csvPath");
+
+// 4. Create zip archives (generic name and versioned name)
 const genericZip = path.join(rootDir, "obsidian-daylio-plugin-demo-vault.zip");
 const versionedZip = path.join(rootDir, `obsidian-daylio-plugin-demo-vault-${version}.zip`);
 
-console.log(`3. Creating zip archives: ${path.basename(genericZip)} and ${path.basename(versionedZip)}...`);
+console.log(`4. Creating zip archives: ${path.basename(genericZip)} and ${path.basename(versionedZip)}...`);
 
 if (process.platform === "win32") {
 	execSync(`powershell -Command "Compress-Archive -Path '${testVaultDir}' -DestinationPath '${genericZip}' -Force"`, { cwd: rootDir, stdio: "inherit" });
@@ -37,8 +49,8 @@ if (process.platform === "win32") {
 	fs.copyFileSync(genericZip, versionedZip);
 }
 
-// 4. Upload to GitHub demo-vault release
-console.log("4. Uploading assets to GitHub demo-vault release...");
+// 5. Upload to GitHub demo-vault release
+console.log("5. Uploading assets to GitHub demo-vault release...");
 try {
 	let exists = false;
 	try {
