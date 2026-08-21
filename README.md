@@ -28,7 +28,7 @@ An [Obsidian](https://obsidian.md/) plugin that renders [Daylio](https://daylio.
 
 Try out the plugin with pre-populated sample data:
 
-Download the **[Example Vault Zip](../../releases/download/demo-vault/obsidian-daylio-plugin-demo-vault.zip)**, extract it, and open it in Obsidian to see a working graph with sample entries and event annotations out of the box.
+Download the **[Example Vault Zip](../../releases/download/demo-vault/obsidian-daylio-plugin-demo-vault.zip)**, extract it, and open it in Obsidian (the plugin is already installed and configured) to see a working graph with sample entries and event annotations out of the box.
 
 ![](screenshot.png)
 
