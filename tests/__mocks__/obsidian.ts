@@ -21,8 +21,18 @@ export class Workspace {
 	}
 }
 
+export class Vault {
+	getAbstractFileByPath(_path: string): TFile | null {
+		return null;
+	}
+	read(_file: TFile): Promise<string> {
+		return Promise.resolve("");
+	}
+}
+
 export class App {
 	workspace: Workspace = new Workspace();
+	vault: Vault = new Vault();
 }
 
 export class ItemView {
@@ -30,6 +40,14 @@ export class ItemView {
 	containerEl: HTMLElement = typeof document !== "undefined" ? document.createElement("div") : ({} as HTMLElement);
 	constructor(_leaf: WorkspaceLeaf) {}
 	addAction(_icon: string, _title: string, _callback: () => void): void {}
+	registerDomEvent(
+		el: Window | Document | HTMLElement,
+		type: string,
+		callback: (ev: Event) => unknown,
+		options?: boolean | AddEventListenerOptions,
+	): void {
+		el.addEventListener(type, callback as EventListener, options);
+	}
 }
 
 export class Plugin {

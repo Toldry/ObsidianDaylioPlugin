@@ -69,6 +69,24 @@ export class DaylioGraphView extends ItemView {
 		this.plugin = plugin;
 	}
 
+	/** The Window object hosting this view (current pop-out window or main window). */
+	private get win(): Window {
+		return (
+			(this.containerEl as Node as { win?: Window }).win ??
+			this.containerEl.ownerDocument?.defaultView ??
+			window
+		);
+	}
+
+	/** The Document object hosting this view (current pop-out document or main document). */
+	private get doc(): Document {
+		return (
+			(this.containerEl as Node as { doc?: Document }).doc ??
+			this.containerEl.ownerDocument ??
+			document
+		);
+	}
+
 	getViewType(): string {
 		return VIEW_TYPE_DAYLIO;
 	}
@@ -86,10 +104,16 @@ export class DaylioGraphView extends ItemView {
 	}
 
 	onClose(): Promise<void> {
-		window.clearTimeout(this.zoomDebounceTimer);
+		this.win.clearTimeout(this.zoomDebounceTimer);
 		if (this.stickyRafId !== null) {
-			window.cancelAnimationFrame(this.stickyRafId);
+			this.win.cancelAnimationFrame(this.stickyRafId);
+			this.stickyRafId = null;
 		}
+		if (this.scrollRafId !== null) {
+			this.win.cancelAnimationFrame(this.scrollRafId);
+			this.scrollRafId = null;
+		}
+		this.doc.body.classList.remove("daylio-is-panning");
 		this.containerEl.empty();
 		return Promise.resolve();
 	}
@@ -289,16 +313,20 @@ export class DaylioGraphView extends ItemView {
 		// wheel handler can use it as a zoom modifier (right-hold + scroll).
 		let rightButtonHeld = false;
 
-		this.scrollContainer.addEventListener("mousedown", (evt) => {
+		this.scrollContainer.addEventListener("pointerdown", (evt: PointerEvent) => {
 			if (evt.button === MouseButton.Secondary) rightButtonHeld = true;
 		});
-		// Release on mouseup anywhere — the pointer may have drifted off
-		// the scroll container while held.  Use registerDomEvent so the
-		// listener is removed when the view closes (not a bare document
-		// listener that accumulates across renderGraph() calls).
-		this.registerDomEvent(document, "mouseup", (evt: MouseEvent) => {
-			if (evt.button === MouseButton.Secondary) rightButtonHeld = false;
+		const handlePointerRelease = (evt: PointerEvent | MouseEvent): void => {
+			if (evt.button === MouseButton.Secondary || (evt.buttons & 2) === 0) {
+				rightButtonHeld = false;
+			}
+		};
+		this.registerDomEvent(this.scrollContainer, "pointerup", handlePointerRelease);
+		this.registerDomEvent(this.doc, "pointerup", handlePointerRelease);
+		this.registerDomEvent(this.win, "blur", () => {
+			rightButtonHeld = false;
 		});
+
 		// Suppress the context menu when right-button was used for zooming.
 		// Only fires when the button is released without having scrolled, so
 		// normal (non-scrolling) right-clicks still work outside this element.
@@ -322,7 +350,7 @@ export class DaylioGraphView extends ItemView {
 
 		this.scrollContainer.appendChild(this.buildSvg(this.plugin.settings.barWidth));
 
-		window.requestAnimationFrame(() => {
+		this.win.requestAnimationFrame(() => {
 			if (this.scrollContainer) {
 				const maxScroll =
 					this.scrollContainer.scrollWidth -
@@ -349,7 +377,8 @@ export class DaylioGraphView extends ItemView {
 		evt.stopPropagation();
 		evt.stopImmediatePropagation();
 
-		if ((evt.ctrlKey || rightButtonHeld) && evt.deltaY !== 0) {
+		const isRightHeld = rightButtonHeld || (evt.buttons & 2) !== 0;
+		if ((evt.ctrlKey || isRightHeld) && evt.deltaY !== 0) {
 			const step =
 				this.plugin.settings.barWidth <= BAR_WIDTH_FINE_THRESHOLD
 					? BAR_WIDTH_FINE_STEP
@@ -378,8 +407,8 @@ export class DaylioGraphView extends ItemView {
 					viewportX,
 					oldStride: oldBW + barGapFor(oldBW),
 				});
-				window.clearTimeout(this.zoomDebounceTimer);
-				this.zoomDebounceTimer = window.setTimeout(() => {
+				this.win.clearTimeout(this.zoomDebounceTimer);
+				this.zoomDebounceTimer = this.win.setTimeout(() => {
 					void this.plugin.saveSettings();
 				}, SAVE_DEBOUNCE_MS);
 			}
@@ -392,6 +421,9 @@ export class DaylioGraphView extends ItemView {
 	/**
 	 * Attach drag-to-pan behaviour to the horizontal scroll container.
 	 *
+	 * Uses Pointer Events with element-level setPointerCapture so pan gestures
+	 * remain tracked even across window boundaries and pop-out window migrations.
+	 *
 	 * Left-mouse-drag translates to horizontal scroll.  A small drag
 	 * distance threshold (> 4 px) gates whether the pointer-up is
 	 * treated as a click so that vault-entry click handlers are not
@@ -400,7 +432,7 @@ export class DaylioGraphView extends ItemView {
 	 * Cursor changes:
 	 *   default          → grab   (via CSS on .daylio-graph-scroll)
 	 *   hovering entry   → pointer (via CSS on .daylio-entry-group)
-	 *   while panning    → grabbing (via class on document.body, !important
+	 *   while panning    → grabbing (via class on doc.body, !important
 	 *                               so it wins over child pointer cursors)
 	 */
 	private setupDragPan(scrollEl: HTMLElement): void {
@@ -409,19 +441,32 @@ export class DaylioGraphView extends ItemView {
 		let startScrollLeft = 0;
 		let totalDragPx = 0;
 
-		this.registerDomEvent(scrollEl, "mousedown", (evt: MouseEvent) => {
+		const endDrag = (): void => {
+			if (!isDragging) return;
+			isDragging = false;
+			const targetDoc = scrollEl.ownerDocument ?? this.doc;
+			targetDoc.body.classList.remove("daylio-is-panning");
+		};
+
+		this.registerDomEvent(scrollEl, "pointerdown", (evt: PointerEvent) => {
 			if (evt.button !== MouseButton.Main) return;
 			isDragging = true;
 			totalDragPx = 0;
 			startX = evt.clientX;
 			startScrollLeft = scrollEl.scrollLeft;
 			this.intendedScrollLeft = null;
-			document.body.classList.add("daylio-is-panning");
+			const targetDoc = scrollEl.ownerDocument ?? this.doc;
+			targetDoc.body.classList.add("daylio-is-panning");
+			try {
+				scrollEl.setPointerCapture(evt.pointerId);
+			} catch {
+				// Fallback if setPointerCapture is unsupported in environment
+			}
 			// Prevent text selection while dragging.
 			evt.preventDefault();
 		});
 
-		this.registerDomEvent(document, "mousemove", (evt: MouseEvent) => {
+		this.registerDomEvent(scrollEl, "pointermove", (evt: PointerEvent) => {
 			if (!isDragging) return;
 			// Dragging right (positive clientX delta) scrolls left, and
 			// vice versa — matches the feel of moving content under the hand.
@@ -432,10 +477,34 @@ export class DaylioGraphView extends ItemView {
 			this.updateStickyRangeLabels();
 		});
 
-		this.registerDomEvent(document, "mouseup", () => {
-			if (!isDragging) return;
-			isDragging = false;
-			document.body.classList.remove("daylio-is-panning");
+		this.registerDomEvent(scrollEl, "pointerup", (evt: PointerEvent) => {
+			if (isDragging) {
+				try {
+					if (scrollEl.hasPointerCapture(evt.pointerId)) {
+						scrollEl.releasePointerCapture(evt.pointerId);
+					}
+				} catch {
+					// Ignore
+				}
+				endDrag();
+			}
+		});
+
+		this.registerDomEvent(scrollEl, "pointercancel", (evt: PointerEvent) => {
+			if (isDragging) {
+				try {
+					if (scrollEl.hasPointerCapture(evt.pointerId)) {
+						scrollEl.releasePointerCapture(evt.pointerId);
+					}
+				} catch {
+					// Ignore
+				}
+				endDrag();
+			}
+		});
+
+		this.registerDomEvent(scrollEl, "lostpointercapture", () => {
+			endDrag();
 		});
 
 		// Suppress clicks that were actually the end of a pan gesture.
@@ -471,7 +540,7 @@ export class DaylioGraphView extends ItemView {
 	/** Schedule an update of sticky range labels via RAF. */
 	private scheduleUpdateStickyRangeLabels(): void {
 		if (this.stickyRafId !== null) return;
-		this.stickyRafId = window.requestAnimationFrame(() => {
+		this.stickyRafId = this.win.requestAnimationFrame(() => {
 			this.stickyRafId = null;
 			this.updateStickyRangeLabels();
 		});
@@ -666,24 +735,26 @@ export class DaylioGraphView extends ItemView {
 		}
 		this.scrollContainer.appendChild(svg);
 
-		if (this.scrollRafId !== null) {
-			window.cancelAnimationFrame(this.scrollRafId);
+		// Synchronously apply intended scroll position so that subsequent
+		// wheel events in the active window immediately read the updated
+		// position without relying on asynchronous RAF ticks.
+		if (this.intendedScrollLeft !== null) {
+			this.scrollContainer.scrollLeft = this.intendedScrollLeft;
+			this.intendedScrollLeft = null;
+		} else {
+			const maxScroll =
+				this.scrollContainer.scrollWidth -
+				this.scrollContainer.clientWidth;
+			this.scrollContainer.scrollLeft =
+				maxScroll * this.scrollRatio;
 		}
-		this.scrollRafId = window.requestAnimationFrame(() => {
+
+		if (this.scrollRafId !== null) {
+			this.win.cancelAnimationFrame(this.scrollRafId);
 			this.scrollRafId = null;
-			if (!this.scrollContainer) return;
-			if (this.intendedScrollLeft !== null) {
-				this.scrollContainer.scrollLeft = this.intendedScrollLeft;
-				this.intendedScrollLeft = null;
-			} else {
-				const maxScroll =
-					this.scrollContainer.scrollWidth -
-					this.scrollContainer.clientWidth;
-				this.scrollContainer.scrollLeft =
-					maxScroll * this.scrollRatio;
-			}
-			this.updateStickyRangeLabels();
-		});
+		}
+
+		this.updateStickyRangeLabels();
 	}
 
 	/**
