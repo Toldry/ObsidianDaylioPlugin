@@ -12,12 +12,40 @@
 
 export class WorkspaceLeaf {
 	view: unknown;
+	openFile(_file: TFile, _openState?: unknown): Promise<void> {
+		return Promise.resolve();
+	}
 }
 
 export class Workspace {
 	leaves: WorkspaceLeaf[] = [];
+	rootSplit: unknown = {};
 	getLeavesOfType(_type: string): WorkspaceLeaf[] {
 		return this.leaves;
+	}
+	iterateAllLeaves(callback: (leaf: WorkspaceLeaf) => unknown): void {
+		for (const leaf of this.leaves) {
+			callback(leaf);
+		}
+	}
+	getLeaf(_newLeaf?: unknown, _direction?: unknown): WorkspaceLeaf {
+		return new WorkspaceLeaf();
+	}
+	getMostRecentLeaf(_root?: unknown): WorkspaceLeaf | null {
+		return null;
+	}
+	createLeafBySplit(_leaf: WorkspaceLeaf, _direction?: unknown): WorkspaceLeaf {
+		return new WorkspaceLeaf();
+	}
+	setActiveLeaf(_leaf: WorkspaceLeaf, _params?: { focus?: boolean }): void {}
+	openLinkText(_linktext: string, _sourcePath: string, _newLeaf?: unknown): Promise<void> {
+		return Promise.resolve();
+	}
+}
+
+export class Keymap {
+	static isModEvent(_evt?: unknown): string | boolean {
+		return false;
 	}
 }
 
@@ -36,9 +64,12 @@ export class App {
 }
 
 export class ItemView {
+	leaf: WorkspaceLeaf;
 	app: App = new App();
 	containerEl: HTMLElement = typeof document !== "undefined" ? document.createElement("div") : ({} as HTMLElement);
-	constructor(_leaf: WorkspaceLeaf) {}
+	constructor(leaf: WorkspaceLeaf) {
+		this.leaf = leaf;
+	}
 	addAction(_icon: string, _title: string, _callback: () => void): void {}
 	registerDomEvent(
 		el: Window | Document | HTMLElement,

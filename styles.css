@@ -416,7 +416,8 @@
 	text-overflow: ellipsis;
 	padding: 0 3px;
 	user-select: none;
-	pointer-events: none;
+	cursor: pointer;
+	pointer-events: auto;
 }
 
 /* Callout card */
@@ -437,7 +438,8 @@
 	white-space: nowrap;
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 	user-select: none;
-	pointer-events: none;
+	cursor: pointer;
+	pointer-events: auto;
 	transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 

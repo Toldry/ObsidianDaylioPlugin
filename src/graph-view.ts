@@ -1,4 +1,4 @@
-import { App, ItemView, Notice, TFile, WorkspaceLeaf } from "obsidian";
+import { App, ItemView, Keymap, Notice, TFile, WorkspaceLeaf } from "obsidian";
 import {
 	MOOD_LEVELS,
 	VIEW_TYPE_DAYLIO,
@@ -119,10 +119,56 @@ export class DaylioGraphView extends ItemView {
 	}
 
 	/** Open a vault file by path, with error notice on failure. */
-	private openFile(filePath: string): void {
+	private openFile(filePath: string, evt?: MouseEvent): void {
 		const target = this.app.vault.getAbstractFileByPath(filePath);
 		if (target instanceof TFile) {
-			void this.app.workspace.getLeaf(false).openFile(target);
+			const mod = evt ? Keymap.isModEvent(evt) : false;
+			const currentDoc = this.containerEl.ownerDocument ?? this.doc;
+			const isPopout = currentDoc !== (typeof document !== "undefined" ? document : null);
+
+			// Check if there are any note leaves open in this popout window
+			let hasLocalNoteLeaf = false;
+			if (isPopout) {
+				this.app.workspace.iterateAllLeaves((l) => {
+					const leafDoc =
+						(l.view as { containerEl?: HTMLElement })?.containerEl?.ownerDocument ??
+						(l as { containerEl?: HTMLElement }).containerEl?.ownerDocument;
+					if (leafDoc === currentDoc && l.view?.getViewType() === "markdown") {
+						hasLocalNoteLeaf = true;
+					}
+				});
+			}
+
+			if (isPopout && !hasLocalNoteLeaf) {
+				// The popout window contains only the Daylio graph.
+				// Open the note in the main window (rootSplit) and focus it.
+				let leaf: WorkspaceLeaf;
+				if (mod === "window") {
+					leaf = this.app.workspace.getLeaf("window");
+				} else if (mod === "tab" || mod === true) {
+					leaf = this.app.workspace.getLeaf("tab");
+				} else if (mod === "split") {
+					const activeMain = this.app.workspace.getMostRecentLeaf(this.app.workspace.rootSplit);
+					leaf = activeMain
+						? this.app.workspace.createLeafBySplit(activeMain)
+						: this.app.workspace.getLeaf("tab");
+				} else {
+					leaf =
+						this.app.workspace.getMostRecentLeaf(this.app.workspace.rootSplit) ??
+						this.app.workspace.getLeaf("tab");
+				}
+
+				void leaf.openFile(target).then(() => {
+					this.app.workspace.setActiveLeaf(leaf, { focus: true });
+					if (typeof window !== "undefined" && typeof window.focus === "function") {
+						window.focus();
+					}
+				});
+			} else {
+				// Main window or mixed popout window with existing notes:
+				// Use Obsidian's native openLinkText navigation.
+				void this.app.workspace.openLinkText(target.path, "", mod);
+			}
 		} else {
 			console.warn("[daylio] file not found in vault:", filePath);
 			new Notice(`Could not find note: ${filePath}`);
@@ -436,12 +482,14 @@ export class DaylioGraphView extends ItemView {
 	 *                               so it wins over child pointer cursors)
 	 */
 	private setupDragPan(scrollEl: HTMLElement): void {
+		let isPointerDown = false;
 		let isDragging = false;
 		let startX = 0;
 		let startScrollLeft = 0;
 		let totalDragPx = 0;
 
 		const endDrag = (): void => {
+			isPointerDown = false;
 			if (!isDragging) return;
 			isDragging = false;
 			const targetDoc = scrollEl.ownerDocument ?? this.doc;
@@ -450,54 +498,60 @@ export class DaylioGraphView extends ItemView {
 
 		this.registerDomEvent(scrollEl, "pointerdown", (evt: PointerEvent) => {
 			if (evt.button !== MouseButton.Main) return;
-			isDragging = true;
+			isPointerDown = true;
+			isDragging = false;
 			totalDragPx = 0;
 			startX = evt.clientX;
 			startScrollLeft = scrollEl.scrollLeft;
 			this.intendedScrollLeft = null;
-			const targetDoc = scrollEl.ownerDocument ?? this.doc;
-			targetDoc.body.classList.add("daylio-is-panning");
-			try {
-				scrollEl.setPointerCapture(evt.pointerId);
-			} catch {
-				// Fallback if setPointerCapture is unsupported in environment
-			}
-			// Prevent text selection while dragging.
-			evt.preventDefault();
 		});
 
 		this.registerDomEvent(scrollEl, "pointermove", (evt: PointerEvent) => {
-			if (!isDragging) return;
+			if (!isPointerDown) return;
 			// Dragging right (positive clientX delta) scrolls left, and
 			// vice versa — matches the feel of moving content under the hand.
 			const delta = startX - evt.clientX;
 			totalDragPx = Math.abs(delta);
-			scrollEl.scrollLeft = startScrollLeft + delta;
-			this.intendedScrollLeft = null;
-			this.updateStickyRangeLabels();
+
+			if (!isDragging && totalDragPx > DRAG_CLICK_THRESHOLD_PX) {
+				isDragging = true;
+				const targetDoc = scrollEl.ownerDocument ?? this.doc;
+				targetDoc.body.classList.add("daylio-is-panning");
+				try {
+					scrollEl.setPointerCapture(evt.pointerId);
+				} catch {
+					// Fallback if setPointerCapture is unsupported in environment
+				}
+			}
+
+			if (isDragging) {
+				scrollEl.scrollLeft = startScrollLeft + delta;
+				this.intendedScrollLeft = null;
+				this.updateStickyRangeLabels();
+			}
 		});
 
 		this.registerDomEvent(scrollEl, "pointerup", (evt: PointerEvent) => {
-			if (isDragging) {
-				try {
-					if (scrollEl.hasPointerCapture(evt.pointerId)) {
+			if (isPointerDown) {
+				if (scrollEl.hasPointerCapture(evt.pointerId)) {
+					try {
 						scrollEl.releasePointerCapture(evt.pointerId);
+					} catch {
+						// Ignore
 					}
-				} catch {
-					// Ignore
 				}
 				endDrag();
 			}
 		});
 
 		this.registerDomEvent(scrollEl, "pointercancel", (evt: PointerEvent) => {
-			if (isDragging) {
-				try {
-					if (scrollEl.hasPointerCapture(evt.pointerId)) {
+			if (isPointerDown) {
+				if (scrollEl.hasPointerCapture(evt.pointerId)) {
+					try {
 						scrollEl.releasePointerCapture(evt.pointerId);
+					} catch {
+						// Ignore
 					}
-				} catch {
-					// Ignore
 				}
 				endDrag();
 			}
@@ -528,7 +582,7 @@ export class DaylioGraphView extends ItemView {
 	private buildSvg(barWidth: number, minWidth?: number): SVGSVGElement {
 		return buildGraphSvg(barWidth, this.cachedDays, this.cachedVaultEvents, {
 			moodColors: this.plugin.settings.moodColors,
-			openFile: (fp) => this.openFile(fp),
+			openFile: (fp, evt) => this.openFile(fp, evt),
 			showEventLabels: this.plugin.settings.showEventLabels,
 			minWidth,
 			onEventHover: (evt, data) => this.showTooltip(evt, data),

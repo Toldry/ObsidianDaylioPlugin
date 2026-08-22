@@ -229,7 +229,7 @@ export interface GraphBuildContext {
 	/** Hex colour for each mood level. */
 	moodColors: Record<MoodLevel, string>;
 	/** Callback to open a vault file when the user clicks an event. */
-	openFile: (filePath: string) => void;
+	openFile: (filePath: string, evt?: MouseEvent) => void;
 	/** When false, event label cards and their connector lines are omitted. */
 	showEventLabels: boolean;
 	/** When set, the SVG is padded on the right so its rendered width is at
@@ -877,22 +877,27 @@ export function buildGraphSvg(
 			}
 
 			// Tooltip listeners on the entire pillGroup
-			pillGroup.addEventListener("mouseenter", (evt: MouseEvent) => {
+			const onEnter = (evt: MouseEvent): void => {
 				ctx.onEventHover?.(evt, tooltipData);
-			});
-			pillGroup.addEventListener("mousemove", (evt: MouseEvent) => {
+			};
+			const onMove = (evt: MouseEvent): void => {
 				ctx.onEventMove?.(evt);
-			});
-			pillGroup.addEventListener("mouseleave", () => {
+			};
+			const onLeave = (): void => {
 				ctx.onEventLeave?.();
-			});
+			};
+
+			pillGroup.addEventListener("mouseenter", onEnter);
+			pillGroup.addEventListener("mousemove", onMove);
+			pillGroup.addEventListener("mouseleave", onLeave);
 
 			const filePath = span.event.filePath;
-			pillGroup.addEventListener("click", (evt) => {
+			const onClick = (evt: MouseEvent): void => {
 				evt.preventDefault();
 				evt.stopPropagation();
-				ctx.openFile(filePath);
-			});
+				ctx.openFile(filePath, evt);
+			};
+			pillGroup.addEventListener("click", onClick);
 
 			swimlaneGroup.appendChild(pillGroup);
 		}
@@ -945,7 +950,7 @@ export function buildGraphSvg(
 		const filePath = span.entry.filePath;
 		const clickHandler = (evt: MouseEvent): void => {
 			evt.stopPropagation();
-			ctx.openFile(filePath);
+			ctx.openFile(filePath, evt);
 		};
 
 		for (let i = span.startIdx; i <= span.endIdx; i++) {
